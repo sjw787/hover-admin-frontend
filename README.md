@@ -1,36 +1,165 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hovver Admin Dashboard
 
-## Getting Started
+A Next.js 16 admin dashboard for managing images with AWS Cognito authentication and S3 storage.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- 🔐 **Secure Authentication** - Login with AWS Cognito
+- 📤 **Image Upload** - Upload images with preview (JPG, PNG, GIF, WebP, max 10MB)
+- 🖼️ **Image Gallery** - View all uploaded images with pagination
+- 🔍 **Filter by Prefix** - Filter images by date folder (e.g., `2026/01/`)
+- 🗑️ **Delete Images** - Remove images with confirmation
+- 🌓 **Dark Mode** - Automatic dark mode support
+- 📱 **Responsive Design** - Works on all devices
+
+## Prerequisites
+
+- Node.js 20+ installed
+- Backend API running at `http://localhost:8000`
+- Valid AWS Cognito credentials
+
+## Installation
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment variables:**
+   
+   The `.env.local` file is already created with:
+   ```
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   ```
+   
+   Update this if your backend API is hosted elsewhere.
+
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser:**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Usage
+
+### Login
+
+1. Navigate to the login page (automatically redirected if not authenticated)
+2. Enter your AWS Cognito credentials:
+   - Username/Email: `admin@example.com`
+   - Password: Your password
+3. Click "Sign In"
+
+### Upload Images
+
+1. Click "Upload" in the navigation header
+2. Select an image file (JPG, PNG, GIF, or WebP, max 10MB)
+3. Preview the image before uploading
+4. Click "Upload Image"
+5. Wait for the upload to complete
+
+### View Gallery
+
+1. Click "Gallery" in the navigation header
+2. Browse all uploaded images in a grid layout
+3. Use pagination to navigate through multiple pages
+4. Filter images by prefix (e.g., `2026/01/15/` for a specific date)
+5. Click "View" to open the image in a new tab
+6. Click "Delete" twice to confirm deletion
+
+### Logout
+
+Click the "Logout" button in the top-right corner to sign out and return to the login page.
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── (protected)/          # Protected routes requiring authentication
+│   │   ├── gallery/          # Gallery page
+│   │   ├── upload/           # Upload page
+│   │   └── layout.tsx        # Protected layout with navigation
+│   ├── login/                # Login page
+│   ├── layout.tsx            # Root layout with AuthProvider
+│   ├── page.tsx              # Home page (redirects)
+│   └── globals.css           # Global styles
+├── contexts/
+│   └── AuthContext.tsx       # Authentication context provider
+└── lib/
+    └── api.ts                # API client for backend communication
+
+middleware.ts                 # Next.js middleware for route protection
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API Endpoints
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The application connects to the following backend endpoints:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `POST /auth/login` - Authenticate user
+- `GET /auth/me` - Get current user info
+- `POST /images/upload` - Upload an image
+- `GET /images/list?prefix=` - List images (with optional prefix filter)
+- `DELETE /images/{key}` - Delete an image
 
-## Learn More
+## Technologies
 
-To learn more about Next.js, take a look at the following resources:
+- **Next.js 16** - React framework with App Router
+- **TypeScript** - Type safety
+- **Tailwind CSS 4** - Styling
+- **React 19** - UI library
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Build for production:
+```bash
+npm run build
+```
 
-## Deploy on Vercel
+### Start production server:
+```bash
+npm start
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Run linter:
+```bash
+npm run lint
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Security
+
+- JWT tokens are stored in localStorage
+- Access token is sent with every authenticated request
+- Protected routes redirect to login if not authenticated
+- All API requests use bearer token authentication
+
+## Notes
+
+- Images are stored with date-based organization (YYYY/MM/DD)
+- Presigned S3 URLs are valid for 1 hour
+- Image previews are generated client-side before upload
+- The gallery supports pagination with 12 images per page
+- Delete confirmation requires clicking "Delete" twice
+
+## Troubleshooting
+
+### "Failed to fetch" errors
+- Ensure the backend API is running at `http://localhost:8000`
+- Check CORS settings on the backend
+
+### Authentication errors
+- Verify your AWS Cognito credentials
+- Check if tokens have expired (logout and login again)
+
+### Upload errors
+- Ensure file is under 10MB
+- Check file format (JPG, PNG, GIF, WebP only)
+- Verify you're authenticated
+
+## License
+
+MIT
+
