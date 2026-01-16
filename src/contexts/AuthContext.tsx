@@ -163,9 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Small delay to ensure state propagation
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Redirect to upload page after successful login
-      console.log('🚀 Redirecting to /upload...');
-      router.push('/upload');
+      // Redirect to gallery after successful login
+      console.log('🚀 Redirecting to landing page...');
+      router.push('/');
     } catch (error) {
       console.error('❌ Login failed:', error);
       throw error;

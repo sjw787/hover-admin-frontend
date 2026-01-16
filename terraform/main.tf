@@ -151,6 +151,12 @@ resource "aws_cloudfront_distribution" "website" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-${aws_s3_bucket.website.id}"
 
+    # Add CloudFront Function for URL rewriting
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.url_rewrite.arn
+    }
+
     forwarded_values {
       query_string = false
       cookies {
@@ -165,19 +171,21 @@ resource "aws_cloudfront_distribution" "website" {
     compress               = true
   }
 
-  # Custom error responses for SPA routing
+  # Custom error responses for Next.js static export
+  # Next.js static export creates .html files for each route
+  # We need to handle 403/404 by checking if the HTML file exists
   custom_error_response {
     error_code            = 403
     response_code         = 200
     response_page_path    = "/index.html"
-    error_caching_min_ttl = 300
+    error_caching_min_ttl = 0
   }
 
   custom_error_response {
     error_code            = 404
     response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 300
+    response_page_path    = "/404.html"
+    error_caching_min_ttl = 0
   }
 
   restrictions {
@@ -199,6 +207,33 @@ resource "aws_cloudfront_distribution" "website" {
   tags = {
     Name = "Hover Admin Frontend CDN"
   }
+}
+
+# CloudFront Function to add .html extension for Next.js static export
+resource "aws_cloudfront_function" "url_rewrite" {
+  provider = aws.personal
+
+  name    = "${var.environment}-url-rewrite"
+  runtime = "cloudfront-js-1.0"
+  comment = "Add .html extension for Next.js static export"
+  publish = true
+  code    = <<-EOT
+function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+
+    // Check if the URI already has a file extension
+    if (!uri.includes('.')) {
+        // Add .html extension
+        request.uri = uri + '.html';
+    } else if (uri.endsWith('/')) {
+        // If it ends with /, add index.html
+        request.uri = uri + 'index.html';
+    }
+
+    return request;
+}
+EOT
 }
 
 # Route53 record - Same account (default provider)
