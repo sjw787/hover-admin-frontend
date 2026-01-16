@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "hovver-admin-dashboard-collection",
 		"name": "Hovver Admin Dashboard API",
-		"description": "Complete API collection for testing the Hovver Admin Dashboard backend with AWS Cognito authentication and S3 image management.",
+		"description": "Complete API collection for testing the Hovver Admin Dashboard backend with AWS Cognito authentication, role-based access control, customer management, and S3 image management.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"auth": {
@@ -43,6 +43,16 @@
 		},
 		{
 			"key": "password",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "customer_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "last_uploaded_image_key",
 			"value": "",
 			"type": "string"
 		}
@@ -619,10 +629,68 @@
 			"description": "User management workflows and operations."
 		},
 		{
-			"name": "Image Management",
+			"name": "Customer Management (Admin Only)",
 			"item": [
 				{
-					"name": "Upload Image",
+					"name": "Create Customer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Response has customer_id\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('customer_id');",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"    pm.expect(jsonData).to.have.property('customer_folder');",
+									"    ",
+									"    // Save customer_id for other requests",
+									"    if (jsonData.customer_id) {",
+									"        pm.collectionVariables.set(\"customer_id\", jsonData.customer_id);",
+									"    }",
+									"});",
+									"",
+									"pm.test(\"Customer folder path is correct\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.customer_folder).to.include('customers/');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"customer@example.com\",\n    \"name\": \"John Doe\",\n    \"temporary_password\": \"TempPass123!\",\n    \"phone_number\": \"+12345678900\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/customers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"customers"
+							]
+						},
+						"description": "Create a new customer profile. Admin only. Creates user in Cognito and assigns to Customers group. Customer receives temporary password and must change it on first login."
+					},
+					"response": []
+				},
+				{
+					"name": "List All Customers",
 					"event": [
 						{
 							"listen": "test",
@@ -632,10 +700,208 @@
 									"    pm.response.to.have.status(200);",
 									"});",
 									"",
+									"pm.test(\"Response has customers array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('customers');",
+									"    pm.expect(jsonData.customers).to.be.an('array');",
+									"    pm.expect(jsonData).to.have.property('count');",
+									"});",
+									"",
+									"pm.test(\"Customers have required fields\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.customers.length > 0) {",
+									"        var customer = jsonData.customers[0];",
+									"        pm.expect(customer).to.have.property('customer_id');",
+									"        pm.expect(customer).to.have.property('email');",
+									"        pm.expect(customer).to.have.property('name');",
+									"        pm.expect(customer).to.have.property('customer_folder');",
+									"        pm.expect(customer).to.have.property('created_date');",
+									"        pm.expect(customer).to.have.property('enabled');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/customers?limit=60",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"customers"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "60",
+									"description": "Maximum number of customers to return"
+								}
+							]
+						},
+						"description": "List all customer profiles. Admin only. Returns all customers in the Customers group with their details and S3 folder paths."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has customer details\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('customer_id');",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"    pm.expect(jsonData).to.have.property('customer_folder');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/customers/{{customer_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"customers",
+								"{{customer_id}}"
+							]
+						},
+						"description": "Get detailed information about a specific customer. Admin only. Returns customer profile including S3 folder path and account status."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Customer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Customer updated successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('customer_id');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"John Smith\",\n    \"phone_number\": \"+19876543210\",\n    \"enabled\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/customers/{{customer_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"customers",
+								"{{customer_id}}"
+							]
+						},
+						"description": "Update customer profile information. Admin only. All fields are optional - only include fields you want to update. Can enable/disable customer account."
+					},
+					"response": []
+				},
+				{
+					"name": "Disable Customer Account",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Customer disabled\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.enabled).to.eql(false);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"enabled\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/customers/{{customer_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"customers",
+								"{{customer_id}}"
+							]
+						},
+						"description": "Disable a customer account. Admin only. Disabled customers cannot login."
+					},
+					"response": []
+				}
+			],
+			"description": "Customer management endpoints for admins. Create, list, view, and update customer profiles. Customers are organized with dedicated S3 folders."
+		},
+		{
+			"name": "Image Management",
+			"item": [
+				{
+					"name": "Upload Image to Customer Folder (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
 									"pm.test(\"Response has file key\", function () {",
 									"    var jsonData = pm.response.json();",
 									"    pm.expect(jsonData).to.have.property('key');",
-									"    pm.expect(jsonData).to.have.property('message');",
+									"    pm.expect(jsonData).to.have.property('customer_id');",
+									"    pm.expect(jsonData).to.have.property('folder');",
 									"    ",
 									"    // Save the image key for deletion tests",
 									"    if (jsonData.key) {",
@@ -643,9 +909,126 @@
 									"    }",
 									"});",
 									"",
-									"pm.test(\"Upload was successful\", function () {",
+									"pm.test(\"Upload was successful and in customer folder\", function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.message).to.include('uploaded successfully');",
+									"    pm.expect(jsonData.success).to.eql(true);",
+									"    pm.expect(jsonData.folder).to.include('customers/');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Image file to upload"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/images/upload?customer_id={{customer_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"images",
+								"upload"
+							],
+							"query": [
+								{
+									"key": "customer_id",
+									"value": "{{customer_id}}",
+									"description": "Customer ID to upload file for"
+								}
+							]
+						},
+						"description": "Upload an image file to a specific customer's S3 folder. Admin only. The file will be stored in customers/{customer_id}/YYYY/MM/DD/. Supports common image formats (JPG, JPEG, PNG, GIF, WebP). Maximum file size: 10MB."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Image to General Folder (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Response has file key\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('key');",
+									"    pm.expect(jsonData).to.have.property('folder');",
+									"    ",
+									"    // Save the image key for deletion tests",
+									"    if (jsonData.key) {",
+									"        pm.collectionVariables.set(\"last_uploaded_image_key\", jsonData.key);",
+									"    }",
+									"});",
+									"",
+									"pm.test(\"Upload was successful and in general folder\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.eql(true);",
+									"    pm.expect(jsonData.folder).to.eql('general');",
+									"    pm.expect(jsonData.customer_id).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": [],
+									"description": "Image file to upload"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/images/upload",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"images",
+								"upload"
+							]
+						},
+						"description": "Upload an image file to the general folder accessible by all customers. Admin only. The file will be stored in general/YYYY/MM/DD/. Supports common image formats (JPG, JPEG, PNG, GIF, WebP). Maximum file size: 10MB."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Image (Will Fail for Customer)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 403 for customer\", function () {",
+									"    pm.response.to.have.status(403);",
+									"});",
+									"",
+									"pm.test(\"Error message indicates customer cannot upload\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.detail).to.include('Customers cannot upload');",
 									"});"
 								],
 								"type": "text/javascript"
@@ -675,12 +1058,12 @@
 								"upload"
 							]
 						},
-						"description": "Upload an image file to S3. The file will be stored with date-based organization (YYYY/MM/DD). Supports common image formats (JPG, JPEG, PNG, GIF, WebP). Maximum file size: 10MB."
+						"description": "Test endpoint to verify customers cannot upload files. Should return 403 Forbidden when using customer access token."
 					},
 					"response": []
 				},
 				{
-					"name": "List All Images",
+					"name": "List All Images (Admin View)",
 					"event": [
 						{
 							"listen": "test",
@@ -702,7 +1085,7 @@
 									"    if (jsonData.images.length > 0) {",
 									"        var image = jsonData.images[0];",
 									"        pm.expect(image).to.have.property('key');",
-									"        pm.expect(image).to.have.property('url');",
+									"        pm.expect(image).to.have.property('presigned_url');",
 									"        pm.expect(image).to.have.property('size');",
 									"        pm.expect(image).to.have.property('last_modified');",
 									"    }",
@@ -725,12 +1108,12 @@
 								"list"
 							]
 						},
-						"description": "List all images in the S3 bucket with presigned URLs for viewing. URLs are valid for 1 hour by default. Returns image metadata including key, size, and last modified date."
+						"description": "List all images across all customers and general folder. Admin only - admins see all files. Returns presigned URLs valid for 1 hour."
 					},
 					"response": []
 				},
 				{
-					"name": "List Images with Prefix",
+					"name": "List Images (Customer View)",
 					"event": [
 						{
 							"listen": "test",
@@ -744,6 +1127,18 @@
 									"    var jsonData = pm.response.json();",
 									"    pm.expect(jsonData).to.have.property('images');",
 									"    pm.expect(jsonData.images).to.be.an('array');",
+									"    pm.expect(jsonData).to.have.property('count');",
+									"});",
+									"",
+									"pm.test(\"Customer only sees their files and general files\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.images.length > 0) {",
+									"        jsonData.images.forEach(function(image) {",
+									"            var isCustomerFile = image.key.includes('customers/');",
+									"            var isGeneralFile = image.key.includes('general/');",
+									"            pm.expect(isCustomerFile || isGeneralFile).to.be.true;",
+									"        });",
+									"    }",
 									"});"
 								],
 								"type": "text/javascript"
@@ -754,7 +1149,55 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/images/list?prefix=2026/01/",
+							"raw": "{{base_url}}/images/list",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"images",
+								"list"
+							]
+						},
+						"description": "List images for customer. Customer view - only shows files in their own folder plus general folder files. Returns presigned URLs valid for 1 hour."
+					},
+					"response": []
+				},
+				{
+					"name": "List Images with Prefix (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has images array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('images');",
+									"    pm.expect(jsonData.images).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"All images match prefix\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var prefix = pm.request.url.query.get('prefix');",
+									"    if (jsonData.images.length > 0 && prefix) {",
+									"        jsonData.images.forEach(function(image) {",
+									"            pm.expect(image.key).to.include(prefix);",
+									"        });",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/images/list?prefix=customers/{{customer_id}}/",
 							"host": [
 								"{{base_url}}"
 							],
@@ -765,17 +1208,65 @@
 							"query": [
 								{
 									"key": "prefix",
-									"value": "2026/01/",
-									"description": "Filter images by prefix (e.g., year/month folder)"
+									"value": "customers/{{customer_id}}/",
+									"description": "Filter images by prefix (admin only)"
 								}
 							]
 						},
-						"description": "List images filtered by prefix. Useful for getting images from a specific date folder (e.g., '2026/01/14/' for a specific day)."
+						"description": "List images filtered by prefix. Admin only. Useful for viewing files for a specific customer or date folder. Prefix parameter is ignored for customer users."
 					},
 					"response": []
 				},
 				{
-					"name": "Delete Image",
+					"name": "List General Folder Images",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"All images are from general folder\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.images.length > 0) {",
+									"        jsonData.images.forEach(function(image) {",
+									"            pm.expect(image.key).to.include('general/');",
+									"        });",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/images/list?prefix=general/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"images",
+								"list"
+							],
+							"query": [
+								{
+									"key": "prefix",
+									"value": "general/",
+									"description": "Filter to show only general folder images"
+								}
+							]
+						},
+						"description": "List only general folder images. Admin only - shows all files in the general folder accessible by all customers."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Image (Admin Only)",
 					"event": [
 						{
 							"listen": "test",
@@ -789,6 +1280,7 @@
 									"    var jsonData = pm.response.json();",
 									"    pm.expect(jsonData).to.have.property('message');",
 									"    pm.expect(jsonData.message).to.include('deleted successfully');",
+									"    pm.expect(jsonData.success).to.eql(true);",
 									"});"
 								],
 								"type": "text/javascript"
@@ -799,19 +1291,21 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/images/2026/01/14/image_20260114_120000.jpg",
+							"raw": "{{base_url}}/images/customers/{{customer_id}}/2026/01/16/image_20260116_120000.jpg",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"images",
+								"customers",
+								"{{customer_id}}",
 								"2026",
 								"01",
-								"14",
-								"image_20260114_120000.jpg"
+								"16",
+								"image_20260116_120000.jpg"
 							]
 						},
-						"description": "Delete an image from S3 by its key. The key includes the full path (e.g., '2026/01/14/image_20260114_120000.jpg')."
+						"description": "Delete an image from S3 by its key. Admin only. Customers cannot delete files. The key includes the full path (e.g., 'customers/{customer_id}/2026/01/16/image.jpg' or 'general/2026/01/16/image.jpg')."
 					},
 					"response": []
 				},
@@ -862,12 +1356,53 @@
 								"{{last_uploaded_image_key}}"
 							]
 						},
-						"description": "Delete the last uploaded image using the saved image key from the upload request. This request uses the collection variable 'last_uploaded_image_key' which is automatically set when you upload an image."
+						"description": "Delete the last uploaded image using the saved image key from the upload request. Admin only. This request uses the collection variable 'last_uploaded_image_key' which is automatically set when you upload an image."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Image (Will Fail for Customer)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 403 for customer\", function () {",
+									"    pm.response.to.have.status(403);",
+									"});",
+									"",
+									"pm.test(\"Error message indicates admin access required\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.detail).to.include('Admin access required');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/images/general/2026/01/16/test.jpg",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"images",
+								"general",
+								"2026",
+								"01",
+								"16",
+								"test.jpg"
+							]
+						},
+						"description": "Test endpoint to verify customers cannot delete files. Should return 403 Forbidden when using customer access token."
 					},
 					"response": []
 				}
 			],
-			"description": "Endpoints for managing images in S3 bucket - upload, list, and delete operations."
+			"description": "Endpoints for managing images in S3 bucket. Admins can upload to customer folders or general folder, list all files, and delete files. Customers can only view their own files and general files."
 		},
 		{
 			"name": "API Documentation",

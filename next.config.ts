@@ -4,12 +4,15 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
 
-  // Enable static export for S3 + CloudFront deployment
-  // Comment out this line if you need SSR or API routes
-  output: 'export',
+  // Static export disabled to support:
+  // - Dynamic routes (e.g., /customers/[id])
+  // - Client-side API calls with authentication
+  // - Role-based routing
+  // Deploy using: npm run build && npm start
+  // or use a Node.js hosting platform (Vercel, AWS Amplify, etc.)
 
   images: {
-    // Required for static export
+    // Required for external S3 images
     unoptimized: true,
     remotePatterns: [
       {

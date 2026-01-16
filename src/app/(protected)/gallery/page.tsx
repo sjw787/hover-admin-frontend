@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api, type ImageMetadata } from '@/lib/api';
+import { api, type ImageMetadata, type CustomerProfile } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'next/navigation';
 
 export default function GalleryPage() {
+  const { isAdmin } = useAuth();
+  const searchParams = useSearchParams();
   const [images, setImages] = useState<ImageMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,11 +19,53 @@ export default function GalleryPage() {
   const [imageLoading, setImageLoading] = useState<Set<string>>(new Set());
   const imagesPerPage = 12;
 
+  // Admin-only: customer filter
+  const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+
+  // Load customers for admin filter
+  useEffect(() => {
+    if (isAdmin) {
+      loadCustomers();
+    }
+  }, [isAdmin]);
+
+  // Handle customer query parameter
+  useEffect(() => {
+    const customerId = searchParams?.get('customer');
+    if (customerId && isAdmin) {
+      setSelectedCustomer(customerId);
+    }
+  }, [searchParams, isAdmin]);
+
+  const loadCustomers = async () => {
+    setIsLoadingCustomers(true);
+    try {
+      const response = await api.listCustomers();
+      setCustomers(response.customers);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
+
   const loadImages = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.listImages(prefix || undefined);
+      // Build prefix based on selected customer or custom prefix
+      let searchPrefix = prefix;
+      if (isAdmin && selectedCustomer && !prefix) {
+        if (selectedCustomer === '__general__') {
+          searchPrefix = 'general/';
+        } else {
+          searchPrefix = `customers/${selectedCustomer}/`;
+        }
+      }
+
+      const response = await api.listImages(searchPrefix || undefined);
 
       // Reset error and loading states for new images
       setImageErrors(new Set());
@@ -36,7 +82,7 @@ export default function GalleryPage() {
   useEffect(() => {
     loadImages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefix]);
+  }, [prefix, selectedCustomer]);
 
   const handleDelete = async (key: string) => {
     if (deleteConfirm !== key) {
@@ -87,6 +133,27 @@ export default function GalleryPage() {
     }
   };
 
+  // Extract folder info from image key
+  const getFolderBadge = (key: string): { label: string; color: string } => {
+    if (key.startsWith('customers/')) {
+      const customerId = key.split('/')[1];
+      const customer = customers.find(c => c.customer_id === customerId);
+      return {
+        label: customer ? `Customer: ${customer.name}` : 'Customer Folder',
+        color: 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
+      };
+    } else if (key.startsWith('general/')) {
+      return {
+        label: 'General',
+        color: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
+      };
+    }
+    return {
+      label: 'Unknown',
+      color: 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200'
+    };
+  };
+
   // Pagination logic
   const indexOfLastImage = currentPage * imagesPerPage;
   const indexOfFirstImage = indexOfLastImage - imagesPerPage;
@@ -101,13 +168,61 @@ export default function GalleryPage() {
         </h2>
 
         {/* Filter Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 space-y-4">
+          {/* Admin: Customer Filter */}
+          {isAdmin && (
+            <div className="flex items-center space-x-4">
+              <label
+                htmlFor="customerFilter"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap"
+              >
+                Filter by customer:
+              </label>
+              {isLoadingCustomers ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+              ) : (
+                <>
+                  <select
+                    id="customerFilter"
+                    value={selectedCustomer}
+                    onChange={(e) => {
+                      setSelectedCustomer(e.target.value);
+                      setPrefix(''); // Clear custom prefix when selecting customer
+                      setCurrentPage(1);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="">All Files</option>
+                    <option value="__general__">General Folder Only</option>
+                    {customers.map((customer) => (
+                      <option key={customer.customer_id} value={customer.customer_id}>
+                        {customer.name} ({customer.email})
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCustomer && (
+                    <button
+                      onClick={() => {
+                        setSelectedCustomer('');
+                        setCurrentPage(1);
+                      }}
+                      className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Advanced Prefix Filter */}
           <div className="flex items-center space-x-4">
             <label
               htmlFor="prefix"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap"
             >
-              Filter by prefix:
+              {isAdmin ? 'Advanced filter:' : 'Filter by prefix:'}
             </label>
             <input
               id="prefix"
@@ -115,9 +230,10 @@ export default function GalleryPage() {
               value={prefix}
               onChange={(e) => {
                 setPrefix(e.target.value);
+                setSelectedCustomer(''); // Clear customer filter when using custom prefix
                 setCurrentPage(1);
               }}
-              placeholder="e.g., 2026/01/"
+              placeholder="e.g., 2026/01/ or customers/{id}/"
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
             {prefix && (
@@ -255,6 +371,15 @@ export default function GalleryPage() {
 
                 {/* Details */}
                 <div className="p-4">
+                  {/* Folder Badge */}
+                  {isAdmin && (
+                    <div className="mb-2">
+                      <span className={`inline-block text-xs font-medium px-2 py-1 rounded ${getFolderBadge(image.key).color}`}>
+                        {getFolderBadge(image.key).label}
+                      </span>
+                    </div>
+                  )}
+
                   <h3
                     className="text-sm font-medium text-gray-900 dark:text-white truncate mb-2"
                     title={image.key}
@@ -285,21 +410,23 @@ export default function GalleryPage() {
                         No URL
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(image.key)}
-                      disabled={deletingKey === image.key}
-                      className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-colors ${
-                        deleteConfirm === image.key
-                          ? 'bg-red-600 hover:bg-red-700 text-white'
-                          : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {deletingKey === image.key
-                        ? 'Deleting...'
-                        : deleteConfirm === image.key
-                        ? 'Confirm?'
-                        : 'Delete'}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(image.key)}
+                        disabled={deletingKey === image.key}
+                        className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-colors ${
+                          deleteConfirm === image.key
+                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                            : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {deletingKey === image.key
+                          ? 'Deleting...'
+                          : deleteConfirm === image.key
+                          ? 'Confirm?'
+                          : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

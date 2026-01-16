@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type User, type LoginCredentials } from '@/lib/api';
+import { getUserRole, getCustomerId } from '@/lib/jwt';
 import SessionTimeoutModal from '@/components/SessionTimeoutModal';
 
 interface AuthContextType {
@@ -11,6 +12,10 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  userRole: 'admin' | 'customer' | null;
+  customerId: string | null;
+  isAdmin: boolean;
+  isCustomer: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'customer' | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const router = useRouter();
 
   const loadUser = useCallback(async () => {
@@ -37,6 +44,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Decode role and customer ID from token
+      const role = getUserRole(accessToken);
+      const custId = getCustomerId(accessToken);
+      console.log('👤 Decoded role:', role, 'Customer ID:', custId);
+
+      setUserRole(role);
+      setCustomerId(custId);
+
       console.log('📡 Fetching current user...');
       const userData = await api.getCurrentUser();
       console.log('✅ User loaded:', userData.username);
@@ -50,6 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('token_expiration');
       setUser(null);
+      setUserRole(null);
+      setCustomerId(null);
     } finally {
       console.log('✅ loadUser complete, isLoading = false');
       setIsLoading(false);
@@ -66,6 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expiration');
     setUser(null);
+    setUserRole(null);
+    setCustomerId(null);
     setShowTimeoutModal(false);
     router.push('/login');
   }, [router]);
@@ -151,6 +170,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedToken = localStorage.getItem('access_token');
       console.log('🔍 Verification - Token stored:', !!storedToken);
 
+      // Decode role and customer ID from token
+      const role = getUserRole(response.access_token);
+      const custId = getCustomerId(response.access_token);
+      console.log('👤 Decoded role:', role, 'Customer ID:', custId);
+
+      setUserRole(role);
+      setCustomerId(custId);
+
       // Load user data
       console.log('👤 Loading user data...');
       const userData = await api.getCurrentUser();
@@ -182,6 +209,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     isAuthenticated: !!user,
+    userRole,
+    customerId,
+    isAdmin: userRole === 'admin',
+    isCustomer: userRole === 'customer',
   };
 
   return (

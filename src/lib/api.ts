@@ -54,10 +54,42 @@ export interface ListImagesResponse {
 export interface UploadResponse {
   key: string;
   message: string;
+  success?: boolean;
+  customer_id?: string | null;
+  folder?: string;
 }
 
 export interface DeleteResponse {
   message: string;
+}
+
+// Customer Management Types
+export interface CustomerProfile {
+  customer_id: string;
+  email: string;
+  name: string;
+  phone_number?: string;
+  customer_folder: string;
+  created_date: string;
+  enabled: boolean;
+}
+
+export interface CreateCustomerRequest {
+  email: string;
+  name: string;
+  temporary_password: string;
+  phone_number?: string;
+}
+
+export interface UpdateCustomerRequest {
+  name?: string;
+  phone_number?: string;
+  enabled?: boolean;
+}
+
+export interface CustomerListResponse {
+  customers: CustomerProfile[];
+  count: number;
 }
 
 class ApiClient {
@@ -298,11 +330,16 @@ class ApiClient {
     }
   }
 
-  async uploadImage(file: File): Promise<UploadResponse> {
+  async uploadImage(file: File, customerId?: string): Promise<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_URL}/images/upload`, {
+    const url = new URL(`${API_URL}/images/upload`);
+    if (customerId) {
+      url.searchParams.append('customer_id', customerId);
+    }
+
+    const response = await fetch(url.toString(), {
       method: 'POST',
       headers: this.getAuthHeader(),
       body: formData,
@@ -356,6 +393,111 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  // Customer Management Methods (Admin Only)
+
+  async createCustomer(data: CreateCustomerRequest): Promise<CustomerProfile> {
+    console.log('👥 Creating customer...');
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/customers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader(),
+        },
+        body: JSON.stringify(data),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to create customer' }));
+        throw new Error(error.detail || 'Failed to create customer');
+      }
+
+      const result = await response.json();
+      console.log('✅ Customer created:', result.customer_id);
+      return result;
+    } catch (error) {
+      console.error('❌ Create customer error:', error);
+      throw error;
+    }
+  }
+
+  async listCustomers(limit: number = 60): Promise<CustomerListResponse> {
+    console.log('👥 Listing customers...');
+
+    try {
+      const url = new URL(`${API_URL}/customers`);
+      url.searchParams.append('limit', limit.toString());
+
+      const response = await this.fetchWithTimeout(url.toString(), {
+        method: 'GET',
+        headers: this.getAuthHeader(),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch customers' }));
+        throw new Error(error.detail || 'Failed to fetch customers');
+      }
+
+      const result = await response.json();
+      console.log('✅ Customers fetched:', result.count);
+      return result;
+    } catch (error) {
+      console.error('❌ List customers error:', error);
+      throw error;
+    }
+  }
+
+  async getCustomer(customerId: string): Promise<CustomerProfile> {
+    console.log('👥 Fetching customer:', customerId);
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/customers/${customerId}`, {
+        method: 'GET',
+        headers: this.getAuthHeader(),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch customer' }));
+        throw new Error(error.detail || 'Failed to fetch customer');
+      }
+
+      const result = await response.json();
+      console.log('✅ Customer fetched:', result.email);
+      return result;
+    } catch (error) {
+      console.error('❌ Get customer error:', error);
+      throw error;
+    }
+  }
+
+  async updateCustomer(customerId: string, data: UpdateCustomerRequest): Promise<CustomerProfile> {
+    console.log('👥 Updating customer:', customerId);
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/customers/${customerId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader(),
+        },
+        body: JSON.stringify(data),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to update customer' }));
+        throw new Error(error.detail || 'Failed to update customer');
+      }
+
+      const result = await response.json();
+      console.log('✅ Customer updated:', result.customer_id);
+      return result;
+    } catch (error) {
+      console.error('❌ Update customer error:', error);
+      throw error;
+    }
   }
 }
 

@@ -1,19 +1,55 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
-import { api } from '@/lib/api';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
+import { api, type CustomerProfile } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export default function UploadPage() {
+  const { isAdmin, isCustomer, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Admin-only features
+  const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [uploadTarget, setUploadTarget] = useState<'general' | 'customer'>('general');
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+
+  // Redirect customers away from upload page
+  useEffect(() => {
+    if (!authLoading && isCustomer) {
+      router.push('/gallery');
+    }
+  }, [isCustomer, authLoading, router]);
+
+  // Load customers for admin
+  useEffect(() => {
+    if (isAdmin) {
+      loadCustomers();
+    }
+  }, [isAdmin]);
+
+  const loadCustomers = async () => {
+    setIsLoadingCustomers(true);
+    try {
+      const response = await api.listCustomers();
+      setCustomers(response.customers);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,6 +92,15 @@ export default function UploadPage() {
       return;
     }
 
+    // Validate customer selection if uploading to customer folder
+    if (uploadTarget === 'customer' && !selectedCustomerId) {
+      setMessage({
+        type: 'error',
+        text: 'Please select a customer to upload to.',
+      });
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
     setMessage(null);
@@ -66,11 +111,17 @@ export default function UploadPage() {
     }, 200);
 
     try {
-      const response = await api.uploadImage(selectedFile);
+      const customerId = uploadTarget === 'customer' ? selectedCustomerId : undefined;
+      await api.uploadImage(selectedFile, customerId);
       setUploadProgress(100);
+
+      const targetFolder = uploadTarget === 'customer'
+        ? `customer folder (${customers.find(c => c.customer_id === selectedCustomerId)?.name})`
+        : 'general folder';
+
       setMessage({
         type: 'success',
-        text: response.message || 'Image uploaded successfully!',
+        text: `Image uploaded successfully to ${targetFolder}!`,
       });
 
       // Reset form after successful upload
@@ -102,12 +153,80 @@ export default function UploadPage() {
     }
   };
 
+  // Don't render for customers
+  if (authLoading || isCustomer) {
+    return null;
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
           Upload Image
         </h2>
+
+        {/* Admin: Upload Target Selection */}
+        {isAdmin && (
+          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Upload Destination
+            </label>
+            <div className="space-y-3">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="uploadTarget"
+                  value="general"
+                  checked={uploadTarget === 'general'}
+                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer')}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                />
+                <span className="ml-3 text-sm text-gray-900 dark:text-white">
+                  General Folder (visible to all customers)
+                </span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="uploadTarget"
+                  value="customer"
+                  checked={uploadTarget === 'customer'}
+                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer')}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                />
+                <span className="ml-3 text-sm text-gray-900 dark:text-white">
+                  Customer Folder (specific customer only)
+                </span>
+              </label>
+            </div>
+
+            {/* Customer Selection Dropdown */}
+            {uploadTarget === 'customer' && (
+              <div className="mt-4">
+                <label htmlFor="customer" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Customer
+                </label>
+                {isLoadingCustomers ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Loading customers...</p>
+                ) : (
+                  <select
+                    id="customer"
+                    value={selectedCustomerId}
+                    onChange={(e) => setSelectedCustomerId(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">-- Select a customer --</option>
+                    {customers.map((customer) => (
+                      <option key={customer.customer_id} value={customer.customer_id}>
+                        {customer.name} ({customer.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Message Display */}
         {message && (

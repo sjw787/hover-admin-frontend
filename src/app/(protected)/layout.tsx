@@ -10,7 +10,7 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, logout, user } = useAuth();
+  const { isAuthenticated, isLoading, logout, user, isAdmin, userRole } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -53,16 +53,18 @@ export default function ProtectedLayout({
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-4">
-              <Link
-                href="/upload"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/upload'
-                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                Upload
-              </Link>
+              {isAdmin && (
+                <Link
+                  href="/upload"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname === '/upload'
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Upload
+                </Link>
+              )}
               <Link
                 href="/gallery"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -73,6 +75,18 @@ export default function ProtectedLayout({
               >
                 Gallery
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/customers"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname?.startsWith('/customers')
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Customers
+                </Link>
+              )}
               <Link
                 href="/account"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -87,9 +101,20 @@ export default function ProtectedLayout({
 
             {/* Desktop User Menu */}
             <div className="hidden md:flex items-center space-x-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {user?.email || user?.username}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {user?.email || user?.username}
+                </span>
+                {userRole && (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    userRole === 'admin' 
+                      ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200' 
+                      : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
+                  }`}>
+                    {userRole === 'admin' ? 'Admin' : 'Customer'}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={logout}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors"
@@ -146,17 +171,19 @@ export default function ProtectedLayout({
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 dark:border-gray-700">
             <div className="px-2 pt-2 pb-3 space-y-1">
-              <Link
-                href="/upload"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  pathname === '/upload'
-                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                Upload
-              </Link>
+              {isAdmin && (
+                <Link
+                  href="/upload"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    pathname === '/upload'
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Upload
+                </Link>
+              )}
               <Link
                 href="/gallery"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -168,6 +195,19 @@ export default function ProtectedLayout({
               >
                 Gallery
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/customers"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    pathname?.startsWith('/customers')
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Customers
+                </Link>
+              )}
               <Link
                 href="/account"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -182,15 +222,24 @@ export default function ProtectedLayout({
             </div>
             <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
               <div className="px-5">
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   {user?.email || user?.username}
                 </div>
+                {userRole && (
+                  <div className={`inline-block text-xs font-medium px-2 py-0.5 rounded mb-3 ${
+                    userRole === 'admin' 
+                      ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200' 
+                      : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
+                  }`}>
+                    {userRole === 'admin' ? 'Admin' : 'Customer'}
+                  </div>
+                )}
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     logout();
                   }}
-                  className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors"
+                  className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors mt-2"
                 >
                   Logout
                 </button>
