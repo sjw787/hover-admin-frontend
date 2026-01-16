@@ -31,19 +31,22 @@ api_url = "https://api.samwylock.com"
 # ============================================
 # Custom Domain Configuration (Personal Account)
 # ============================================
-# Your custom domain name
-domain_name = "admin.samwylock.com"
+# Your root domain name (e.g., samwylock.com)
+# Amplify will create: admin.samwylock.com (prod) or dev.admin.samwylock.com (dev)
+domain_name = "samwylock.com"
 
-# ACM Certificate ARN from personal account
-# Certificate MUST be in us-east-1 region for Amplify
-# Leave empty to use Amplify's auto-generated SSL certificate
-acm_certificate_arn = "arn:aws:acm:us-east-1:339878329114:certificate/0898ef60-24d0-4fef-8301-be40e50d3978"
+# ACM Certificate - NOT REQUIRED
+# Amplify automatically provisions SSL certificates via ACM
+# You only need to validate via DNS records that Amplify provides
+# Leave this empty (it's deprecated)
+acm_certificate_arn = ""
 
 # Route53 Hosted Zone ID from personal account
+# This is where your domain (samwylock.com) is hosted
 route53_zone_id = "Z0463989E6ZRMK2X7OOO"
 
 # AWS CLI profile for personal account (where Route53 zone exists)
-# Leave empty if Route53 is in the same account as Amplify
+# Use "personal" if that's your profile name, or "iamadmin-dev" if that's correct
 route53_aws_profile = "personal"
 
 # Alternative: Use assume role instead of profile
