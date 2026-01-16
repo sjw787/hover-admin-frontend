@@ -1,14 +1,25 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    console.log('🔐 Login page - Auth status:', { isAuthenticated, authLoading });
+    if (!authLoading && isAuthenticated) {
+      console.log('✅ Already authenticated, redirecting to upload...');
+      router.push('/upload');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -16,9 +27,12 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log('📝 Form submitted, calling login...');
       await login({ username, password });
+      console.log('✅ Login completed successfully');
       // Navigation is handled by the login function
     } catch (err) {
+      console.error('❌ Login error in form:', err);
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setIsLoading(false);

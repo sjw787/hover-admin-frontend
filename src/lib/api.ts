@@ -88,6 +88,23 @@ class ApiClient {
     return response.json();
   }
 
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Token refresh failed' }));
+      throw new Error(error.detail || 'Token refresh failed');
+    }
+
+    return response.json();
+  }
+
   async getCurrentUser(): Promise<User> {
     const response = await fetch(`${API_URL}/auth/me`, {
       headers: this.getAuthHeader(),

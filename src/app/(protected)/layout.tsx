@@ -15,10 +15,12 @@ export default function ProtectedLayout({
   const pathname = usePathname();
 
   useEffect(() => {
+    console.log('🛡️ ProtectedLayout effect:', { isLoading, isAuthenticated, pathname });
     if (!isLoading && !isAuthenticated) {
+      console.log('🚪 Not authenticated, redirecting to login...');
       router.push('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, pathname]);
 
   if (isLoading) {
     return (

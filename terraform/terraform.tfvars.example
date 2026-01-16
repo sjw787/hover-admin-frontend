@@ -1,0 +1,26 @@
+# Example terraform.tfvars file
+# Copy this to terraform.tfvars and customize
+
+aws_region  = "us-east-1"
+environment = "dev"
+
+# Optional: Custom domain configuration
+# Example for samwylock.com subdomain
+# domain_name          = "admin.samwylock.com"
+# acm_certificate_arn  = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxx"
+# route53_zone_id      = "Z1234567890ABC"
+
+# Cross-Account Route53 Configuration
+# If your Route53 hosted zone (samwylock.com) is in a different AWS account:
+# Option 1: Use AWS CLI profile (recommended)
+# route53_aws_profile  = "personal-account"  # Your AWS CLI profile for samwylock.com account
+
+# Option 2: Use IAM role assumption
+# route53_assume_role_arn = "arn:aws:iam::ACCOUNT_ID:role/TerraformDNSRole"
+
+# CloudFront price class
+# PriceClass_100: US, Canada, Europe (cheapest)
+# PriceClass_200: US, Canada, Europe, Asia, Middle East, Africa
+# PriceClass_All: All edge locations (most expensive)
+cloudfront_price_class = "PriceClass_100"
+

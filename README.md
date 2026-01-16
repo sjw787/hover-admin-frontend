@@ -11,12 +11,26 @@ A Next.js 16 admin dashboard for managing images with AWS Cognito authentication
 - 🗑️ **Delete Images** - Remove images with confirmation
 - 🌓 **Dark Mode** - Automatic dark mode support
 - 📱 **Responsive Design** - Works on all devices
+- ☁️ **AWS S3 + CloudFront** - Static hosting with global CDN
+
+## Quick Deploy to AWS
+
+**Deploy in 5 minutes:**
+```bash
+cd terraform
+terraform init
+terraform apply
+# Type 'yes', then run deployment script
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for details or [DEPLOYMENT.md](DEPLOYMENT.md) for full guide.
 
 ## Prerequisites
 
 - Node.js 20+ installed
 - Backend API running at `http://localhost:8000`
 - Valid AWS Cognito credentials
+- (For deployment) AWS CLI and Terraform installed
 
 ## Installation
 
@@ -128,6 +142,40 @@ npm start
 ```bash
 npm run lint
 ```
+
+## Deployment to AWS
+
+### Using Terraform (S3 + CloudFront)
+
+This project includes complete Terraform configuration for deploying to AWS.
+
+**Quick deploy:**
+```bash
+cd terraform
+terraform init && terraform apply
+```
+
+**Deploy application updates:**
+```bash
+# Windows
+.\terraform\deploy.ps1
+
+# Linux/Mac
+./terraform/deploy.sh
+```
+
+**Resources created:**
+- S3 bucket for static hosting (private)
+- CloudFront distribution for global CDN
+- CloudFront Origin Access Identity
+- Optional: Route53 DNS record for custom domain
+
+**Cost:** ~$1.50-6/month for low traffic
+
+See documentation:
+- [QUICKSTART.md](QUICKSTART.md) - 5-minute quick start
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Comprehensive deployment guide
+- [terraform/README.md](terraform/README.md) - Terraform details
 
 ## Security
 
