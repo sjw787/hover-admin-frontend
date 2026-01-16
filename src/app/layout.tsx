@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hovver Admin Dashboard",
+  title: "Hover Admin Dashboard",
   description: "Admin dashboard for managing images",
 };
 

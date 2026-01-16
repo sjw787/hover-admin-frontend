@@ -71,6 +71,27 @@ class ApiClient {
     };
   }
 
+  // Helper to add timeout to fetch requests
+  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      return response;
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout - please check your connection');
+      }
+      throw error;
+    }
+  }
+
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
@@ -105,6 +126,142 @@ class ApiClient {
     return response.json();
   }
 
+  async changePassword(data: { old_password: string; new_password: string }): Promise<{ message: string }> {
+    console.log('🔐 Changing password...');
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader(),
+        },
+        body: JSON.stringify(data),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to change password' }));
+        throw new Error(error.detail || 'Failed to change password');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('❌ Change password error:', error);
+      throw error;
+    }
+  }
+
+  async updateProfile(data: { full_name?: string; phone_number?: string }): Promise<{ message: string }> {
+    console.log('📝 Updating profile...');
+    console.log('📦 Profile data:', data);
+
+    // Check if token exists
+    const token = localStorage.getItem('access_token');
+    console.log('🔑 Token exists:', !!token);
+    console.log('🔑 Token preview:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+      };
+      console.log('📋 Request headers:', Object.keys(headers));
+
+      const response = await this.fetchWithTimeout(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: headers,
+        body: JSON.stringify(data),
+      }, 15000);
+
+      console.log('📡 Response status:', response.status);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to update profile' }));
+        console.error('❌ Response error:', error);
+        throw new Error(error.detail || 'Failed to update profile');
+      }
+
+      const result = await response.json();
+      console.log('✅ Profile update successful:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Update profile error:', error);
+      throw error;
+    }
+  }
+
+  async forgotPassword(username: string): Promise<{ message: string }> {
+    console.log('🔑 Initiating forgot password...');
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to initiate password reset' }));
+        throw new Error(error.detail || 'Failed to initiate password reset');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('❌ Forgot password error:', error);
+      throw error;
+    }
+  }
+
+  async resetPassword(data: { username: string; confirmation_code: string; new_password: string }): Promise<{ message: string }> {
+    console.log('🔐 Resetting password...');
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to reset password' }));
+        throw new Error(error.detail || 'Failed to reset password');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('❌ Reset password error:', error);
+      throw error;
+    }
+  }
+
+  async completeNewPassword(data: { username: string; temporary_password: string; new_password: string }): Promise<AuthResponse> {
+    console.log('🔐 Completing new password challenge...');
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/auth/complete-new-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to complete password setup' }));
+        throw new Error(error.detail || 'Failed to complete password setup');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('❌ Complete new password error:', error);
+      throw error;
+    }
+  }
+
   async getCurrentUser(): Promise<User> {
     const response = await fetch(`${API_URL}/auth/me`, {
       headers: this.getAuthHeader(),
@@ -116,6 +273,29 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  async getUserInfo(): Promise<{ username: string; attributes: any }> {
+    console.log('👤 Fetching user info...');
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/auth/user-info`, {
+        method: 'GET',
+        headers: this.getAuthHeader(),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch user info' }));
+        throw new Error(error.detail || 'Failed to fetch user info');
+      }
+
+      const result = await response.json();
+      console.log('✅ User info fetched:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Get user info error:', error);
+      throw error;
+    }
   }
 
   async uploadImage(file: File): Promise<UploadResponse> {

@@ -33,7 +33,16 @@ export default function LoginPage() {
       // Navigation is handled by the login function
     } catch (err) {
       console.error('❌ Login error in form:', err);
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+
+      // Check if it's a "new password required" error
+      if (errorMessage.includes('New password required') || errorMessage.includes('reset your password')) {
+        // Redirect to new password required page with username
+        router.push(`/new-password-required?username=${encodeURIComponent(username)}`);
+        return;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +54,7 @@ export default function LoginPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
           <div className="mb-8 text-center">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Hovver Admin
+              Hover Admin
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
               Sign in to access the dashboard
@@ -130,6 +139,15 @@ export default function LoginPage() {
                 'Sign In'
               )}
             </button>
+
+            <div className="text-center">
+              <a
+                href="/forgot-password"
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300"
+              >
+                Forgot your password?
+              </a>
+            </div>
           </form>
         </div>
       </div>

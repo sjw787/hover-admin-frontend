@@ -68,18 +68,45 @@ if ($UseProfile) {
 # Sync to S3
 Write-Host "`nUploading to S3 bucket: $S3Bucket" -ForegroundColor Yellow
 
-# Upload static assets with long cache
+# Upload JS/CSS/font files with long cache (they have hashed filenames)
+Write-Host "Uploading static assets (JS, CSS, fonts)..." -ForegroundColor Gray
 aws s3 sync out/ "s3://$S3Bucket" `
     --delete `
     --cache-control "public,max-age=31536000,immutable" `
-    --exclude "*.html" `
-    --exclude "*.json"
+    --exclude "*" `
+    --include "*.js" `
+    --include "*.css" `
+    --include "*.woff" `
+    --include "*.woff2" `
+    --include "*.ttf" `
+    --include "*.eot"
 
-# Upload HTML files with short cache
+# Upload images with medium cache
+Write-Host "Uploading images..." -ForegroundColor Gray
+aws s3 sync out/ "s3://$S3Bucket" `
+    --cache-control "public,max-age=86400" `
+    --exclude "*" `
+    --include "*.png" `
+    --include "*.jpg" `
+    --include "*.jpeg" `
+    --include "*.gif" `
+    --include "*.svg" `
+    --include "*.ico" `
+    --include "*.webp"
+
+# Upload HTML files with NO cache (always fetch fresh)
+Write-Host "Uploading HTML files..." -ForegroundColor Gray
 aws s3 sync out/ "s3://$S3Bucket" `
     --exclude "*" `
     --include "*.html" `
+    --cache-control "public,max-age=0,must-revalidate,no-cache,no-store"
+
+# Upload JSON files with NO cache (build manifests, etc)
+Write-Host "Uploading JSON/metadata files..." -ForegroundColor Gray
+aws s3 sync out/ "s3://$S3Bucket" `
+    --exclude "*" `
     --include "*.json" `
+    --include "*.txt" `
     --cache-control "public,max-age=0,must-revalidate"
 
 # Invalidate CloudFront cache

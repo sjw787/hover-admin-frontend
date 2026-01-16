@@ -45,7 +45,7 @@ export default function ProtectedLayout({
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Hovver Admin
+                Hover Admin
               </h1>
               <nav className="flex space-x-4">
                 <Link
@@ -67,6 +67,16 @@ export default function ProtectedLayout({
                   }`}
                 >
                   Gallery
+                </Link>
+                <Link
+                  href="/account"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname === '/account'
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Account
                 </Link>
               </nav>
             </div>
