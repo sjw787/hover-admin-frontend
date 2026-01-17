@@ -18,16 +18,123 @@ export default function NewCustomerPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneHelp, setPhoneHelp] = useState<string | null>(null);
 
   if (!authLoading && !isAdmin) {
     router.push('/gallery');
     return null;
   }
 
+  // E.164 phone number validation and helper
+  const validatePhoneNumber = (phone: string): { isValid: boolean; error?: string; suggestion?: string } => {
+    if (!phone || phone.trim() === '') {
+      return { isValid: true }; // Optional field
+    }
+
+    const trimmed = phone.trim();
+
+    // E.164 format: +[country code 1-3 digits][subscriber number 4-14 digits]
+    // Total length: 8-15 characters (including +)
+    const e164Regex = /^\+[1-9]\d{1,14}$/;
+
+    if (e164Regex.test(trimmed)) {
+      return { isValid: true };
+    }
+
+    // Provide helpful suggestions
+    if (!trimmed.startsWith('+')) {
+      // Try to guess country code
+      if (/^\d{10}$/.test(trimmed)) {
+        return {
+          isValid: false,
+          error: 'Phone number must include country code',
+          suggestion: `+1${trimmed}`
+        };
+      }
+      return {
+        isValid: false,
+        error: 'Phone number must start with + and country code (e.g., +1 for US)',
+        suggestion: trimmed.startsWith('1') ? `+${trimmed}` : `+1${trimmed}`
+      };
+    }
+
+    if (trimmed.length < 8) {
+      return {
+        isValid: false,
+        error: 'Phone number is too short (minimum 8 digits including country code)'
+      };
+    }
+
+    if (trimmed.length > 15) {
+      return {
+        isValid: false,
+        error: 'Phone number is too long (maximum 15 digits including country code)'
+      };
+    }
+
+    if (!/^\+[0-9]+$/.test(trimmed)) {
+      return {
+        isValid: false,
+        error: 'Phone number can only contain + and digits (no spaces, dashes, or parentheses)'
+      };
+    }
+
+    if (/^\+0/.test(trimmed)) {
+      return {
+        isValid: false,
+        error: 'Country code cannot start with 0'
+      };
+    }
+
+    return {
+      isValid: false,
+      error: 'Invalid phone number format. Use E.164 format: +[country code][number]'
+    };
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setFormData({ ...formData, phone_number: value });
+
+    if (!value || value.trim() === '') {
+      setPhoneError(null);
+      setPhoneHelp(null);
+      return;
+    }
+
+    const validation = validatePhoneNumber(value);
+    if (!validation.isValid) {
+      setPhoneError(validation.error || null);
+      setPhoneHelp(validation.suggestion ? `Try: ${validation.suggestion}` : null);
+    } else {
+      setPhoneError(null);
+      setPhoneHelp('✓ Valid E.164 format');
+    }
+  };
+
+  const applySuggestion = () => {
+    const validation = validatePhoneNumber(formData.phone_number || '');
+    if (validation.suggestion) {
+      setFormData({ ...formData, phone_number: validation.suggestion });
+      setPhoneError(null);
+      setPhoneHelp('✓ Valid E.164 format');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+
+    // Validate phone number before submission
+    if (formData.phone_number && formData.phone_number.trim() !== '') {
+      const validation = validatePhoneNumber(formData.phone_number);
+      if (!validation.isValid) {
+        setError(validation.error || 'Invalid phone number format');
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     try {
       // Prepare payload - remove phone_number if empty
@@ -128,19 +235,53 @@ export default function NewCustomerPage() {
 
         <div>
           <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Phone Number
+            Phone Number (Optional)
           </label>
           <input
             type="tel"
             id="phone_number"
             value={formData.phone_number}
-            onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            className={`w-full px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+              phoneError 
+                ? 'border-red-500 dark:border-red-500' 
+                : phoneHelp && phoneHelp.startsWith('✓')
+                ? 'border-green-500 dark:border-green-500'
+                : 'border-gray-300 dark:border-gray-600'
+            }`}
             placeholder="+12345678900"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Include country code (e.g., +1 for US)
-          </p>
+
+          {/* Error message */}
+          {phoneError && (
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm">
+              <p className="text-red-700 dark:text-red-300">{phoneError}</p>
+              {phoneHelp && (
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="text-red-600 dark:text-red-400 font-medium">{phoneHelp}</p>
+                  <button
+                    type="button"
+                    onClick={applySuggestion}
+                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                  >
+                    Use This
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Success message */}
+          {!phoneError && phoneHelp && phoneHelp.startsWith('✓') && (
+            <p className="mt-1 text-sm text-green-600 dark:text-green-400">{phoneHelp}</p>
+          )}
+
+          {/* Help text */}
+          {!phoneError && !phoneHelp && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              E.164 format: +[country code][number] (e.g., +12345678900 for US)
+            </p>
+          )}
         </div>
 
         <div>
