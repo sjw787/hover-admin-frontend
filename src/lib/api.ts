@@ -334,51 +334,81 @@ class ApiClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const url = new URL(`${API_URL}/images/upload`);
-    if (customerId) {
-      url.searchParams.append('customer_id', customerId);
+    try {
+      const url = new URL(`${API_URL}/images/upload`);
+      if (customerId) {
+        url.searchParams.append('customer_id', customerId);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: this.getAuthHeader(),
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+        throw new Error(error.detail || 'Upload failed');
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+        throw new Error(`Invalid API URL configuration: ${API_URL}. Please check NEXT_PUBLIC_API_URL environment variable.`);
+      }
+      throw error;
     }
-
-    const response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: this.getAuthHeader(),
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(error.detail || 'Upload failed');
-    }
-
-    return response.json();
   }
 
   async listImages(prefix?: string): Promise<ListImagesResponse> {
-    const url = new URL(`${API_URL}/images/list`);
-    if (prefix) {
-      url.searchParams.append('prefix', prefix);
+    try {
+      const url = new URL(`${API_URL}/images/list`);
+      if (prefix) {
+        url.searchParams.append('prefix', prefix);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: this.getAuthHeader(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to fetch images' }));
+        throw new Error(error.detail || 'Failed to fetch images');
+      }
+
+      const data = await response.json();
+
+      // Transform the response to map presigned_url to url
+      // Also validate and sanitize URLs
+      if (data.images) {
+        data.images = data.images.map((img: BackendImageMetadata) => {
+          let url = img.presigned_url || '';
+
+          // Validate URL format
+          if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            console.warn(`Invalid URL format for image ${img.key}:`, url);
+            url = '';
+          }
+
+          // Force HTTPS if HTTP
+          if (url.startsWith('http://')) {
+            url = url.replace('http://', 'https://');
+          }
+
+          return {
+            ...img,
+            url,
+          };
+        });
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+        throw new Error(`Invalid API URL configuration: ${API_URL}. Please check NEXT_PUBLIC_API_URL environment variable.`);
+      }
+      throw error;
     }
-
-    const response = await fetch(url.toString(), {
-      headers: this.getAuthHeader(),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to fetch images' }));
-      throw new Error(error.detail || 'Failed to fetch images');
-    }
-
-    const data = await response.json();
-
-    // Transform the response to map presigned_url to url
-    if (data.images) {
-      data.images = data.images.map((img: BackendImageMetadata) => ({
-        ...img,
-        url: img.presigned_url,
-      }));
-    }
-
-    return data;
   }
 
   async deleteImage(key: string): Promise<DeleteResponse> {
