@@ -12,7 +12,6 @@ export default function NewCustomerPage() {
   const [formData, setFormData] = useState<CreateCustomerRequest>({
     email: '',
     name: '',
-    temporary_password: '',
     phone_number: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,6 +19,8 @@ export default function NewCustomerPage() {
   const [success, setSuccess] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneHelp, setPhoneHelp] = useState<string | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [createdCustomerId, setCreatedCustomerId] = useState<string | null>(null);
 
   if (!authLoading && !isAdmin) {
     router.push('/gallery');
@@ -141,7 +142,6 @@ export default function NewCustomerPage() {
       const payload: CreateCustomerRequest = {
         email: formData.email,
         name: formData.name,
-        temporary_password: formData.temporary_password,
       };
 
       // Only add phone_number if it has a value
@@ -149,31 +149,93 @@ export default function NewCustomerPage() {
         payload.phone_number = formData.phone_number.trim();
       }
 
-      console.log('Creating customer with payload:', { ...payload, temporary_password: '***' });
+      console.log('Creating customer with payload:', payload);
       const customer = await api.createCustomer(payload);
+
+      // Save the auto-generated password from response
+      setGeneratedPassword(customer.temporary_password || null);
+      setCreatedCustomerId(customer.customer_id);
       setSuccess(true);
 
-      // Redirect to customer detail page after 2 seconds
-      setTimeout(() => {
-        router.push(`/customers/${customer.customer_id}`);
-      }, 2000);
+      // Don't auto-redirect - let admin copy the password first
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create customer');
       setIsSubmitting(false);
     }
   };
 
-  if (success) {
+  if (success && generatedPassword) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
-          <div className="text-green-600 dark:text-green-400 text-5xl mb-4">✓</div>
-          <h2 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-2">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
+          <div className="text-green-600 dark:text-green-400 text-5xl mb-4 text-center">✓</div>
+          <h2 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-4 text-center">
             Customer Created Successfully!
           </h2>
-          <p className="text-green-700 dark:text-green-300">
-            Redirecting to customer details...
-          </p>
+
+          {/* Generated Password Section */}
+          <div className="bg-white dark:bg-gray-800 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-6 mb-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-yellow-600 dark:text-yellow-400 text-2xl">⚠️</div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-white mb-2">
+                  Important: Temporary Password
+                </h3>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                  This password is shown only once. Please copy it and provide it to the customer securely.
+                  The customer must change this password on first login.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 mb-4">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                Temporary Password:
+              </label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-lg font-mono bg-white dark:bg-gray-800 px-4 py-3 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                  {generatedPassword}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedPassword);
+                    alert('Password copied to clipboard!');
+                  }}
+                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href={`/customers/${createdCustomerId}`}
+              className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-center"
+            >
+              View Customer Details
+            </Link>
+            <Link
+              href="/customers/new"
+              onClick={() => {
+                setSuccess(false);
+                setGeneratedPassword(null);
+                setCreatedCustomerId(null);
+                setFormData({ email: '', name: '', phone_number: '' });
+              }}
+              className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-center"
+            >
+              Create Another Customer
+            </Link>
+            <Link
+              href="/customers"
+              className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-center"
+            >
+              Back to Customers
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -284,23 +346,20 @@ export default function NewCustomerPage() {
           )}
         </div>
 
-        <div>
-          <label htmlFor="temporary_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Temporary Password *
-          </label>
-          <input
-            type="password"
-            id="temporary_password"
-            required
-            value={formData.temporary_password}
-            onChange={(e) => setFormData({ ...formData, temporary_password: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="TempPass123!"
-            minLength={8}
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Must be at least 8 characters with uppercase, lowercase, number, and special character
-          </p>
+        {/* Info box about auto-generated password */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-blue-600 dark:text-blue-400 text-xl">ℹ️</div>
+            <div>
+              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                Secure Password Auto-Generation
+              </h4>
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                A secure 16-character temporary password will be automatically generated for this customer.
+                You'll receive it after creation and can provide it to the customer securely.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-4">
