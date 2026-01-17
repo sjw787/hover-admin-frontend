@@ -47,7 +47,7 @@ export default function ProtectedLayout({
             {/* Logo and Title */}
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Hovver Admin
+                Hover Admin
               </h1>
             </div>
 

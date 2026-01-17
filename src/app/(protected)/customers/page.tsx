@@ -75,13 +75,13 @@ export default function CustomersPage() {
   return (
     <div>
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Customer Management
           </h2>
           <Link
             href="/customers/new"
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium transition-colors text-center whitespace-nowrap"
           >
             Add New Customer
           </Link>

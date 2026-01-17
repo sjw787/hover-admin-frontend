@@ -171,17 +171,17 @@ export default function GalleryPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 space-y-4">
           {/* Admin: Customer Filter */}
           {isAdmin && (
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <label
                 htmlFor="customerFilter"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap flex-shrink-0"
               >
                 Filter by customer:
               </label>
               {isLoadingCustomers ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
               ) : (
-                <>
+                <div className="flex flex-1 gap-2 min-w-0">
                   <select
                     id="customerFilter"
                     value={selectedCustomer}
@@ -190,13 +190,13 @@ export default function GalleryPage() {
                       setPrefix(''); // Clear custom prefix when selecting customer
                       setCurrentPage(1);
                     }}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
                   >
                     <option value="">All Files</option>
                     <option value="__general__">General Folder Only</option>
                     {customers.map((customer) => (
                       <option key={customer.customer_id} value={customer.customer_id}>
-                        {customer.name} ({customer.email})
+                        {customer.name}
                       </option>
                     ))}
                   </select>
@@ -206,47 +206,49 @@ export default function GalleryPage() {
                         setSelectedCustomer('');
                         setCurrentPage(1);
                       }}
-                      className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                      className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white whitespace-nowrap flex-shrink-0"
                     >
                       Clear
                     </button>
                   )}
-                </>
+                </div>
               )}
             </div>
           )}
 
           {/* Advanced Prefix Filter */}
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <label
               htmlFor="prefix"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap flex-shrink-0"
             >
               {isAdmin ? 'Advanced filter:' : 'Filter by prefix:'}
             </label>
-            <input
-              id="prefix"
-              type="text"
-              value={prefix}
-              onChange={(e) => {
-                setPrefix(e.target.value);
-                setSelectedCustomer(''); // Clear customer filter when using custom prefix
-                setCurrentPage(1);
-              }}
-              placeholder="e.g., 2026/01/ or customers/{id}/"
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            />
-            {prefix && (
-              <button
-                onClick={() => {
-                  setPrefix('');
+            <div className="flex flex-1 gap-2 min-w-0">
+              <input
+                id="prefix"
+                type="text"
+                value={prefix}
+                onChange={(e) => {
+                  setPrefix(e.target.value);
+                  setSelectedCustomer(''); // Clear customer filter when using custom prefix
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
-              >
-                Clear
-              </button>
-            )}
+                placeholder="e.g., 2026/01/"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+              />
+              {prefix && (
+                <button
+                  onClick={() => {
+                    setPrefix('');
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
