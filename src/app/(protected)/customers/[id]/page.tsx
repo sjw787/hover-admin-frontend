@@ -105,6 +105,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const handleResendWelcomeEmail = async () => {
     if (!customer) return;
 
+    // Check if customer already set their password
+    if (customer.user_status === 'CONFIRMED') {
+      alert('Customer has already set their own password.\n\nThey should use the "Forgot Password" feature on the login page if they need to reset it.');
+      return;
+    }
+
     if (!confirm(`Resend welcome email to ${customer.email}?\n\nThis will generate a new temporary password and send it to the customer.`)) {
       return;
     }
@@ -120,7 +126,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       setResendSuccess(true);
       setSuccessMessage(result.message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resend welcome email');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resend welcome email';
+
+      // Check if it's the "already set password" error
+      if (errorMessage.includes('already set their own password')) {
+        setError('Cannot resend welcome email. Customer has already set their own password. They should use the "Forgot Password" feature on the login page instead.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsResendingEmail(false);
     }
@@ -350,15 +363,36 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </Link>
                 <button
                   onClick={handleResendWelcomeEmail}
-                  disabled={isResendingEmail}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-md text-sm font-medium transition-colors"
+                  disabled={isResendingEmail || customer.user_status === 'CONFIRMED'}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    customer.user_status === 'CONFIRMED'
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white'
+                  }`}
+                  title={customer.user_status === 'CONFIRMED' ? 'Customer has already set their password' : undefined}
                 >
                   {isResendingEmail ? 'Sending...' : '📧 Resend Welcome Email'}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Use this if the customer didn't receive the original email or if the temporary password expired (7 days)
-              </p>
+              {customer.user_status === 'CONFIRMED' ? (
+                <div className="mt-2 flex items-start gap-2">
+                  <span className="text-green-600 dark:text-green-400">✓</span>
+                  <div className="text-xs">
+                    <p className="text-green-600 dark:text-green-400 font-medium mb-1">
+                      Customer has already set their password and can log in normally
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      If they forgot their password, they should use the "Forgot Password" link on the login page
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Resends welcome email with a new temporary password. Only works if customer hasn't set their own password yet.
+                  <br />
+                  Use this if the customer didn't receive the original email or if the temporary password expired (7 days)
+                </p>
+              )}
             </div>
           </>
         )}
