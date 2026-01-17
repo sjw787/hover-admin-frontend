@@ -32,16 +32,27 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   // Helper function to determine if resend welcome email is allowed
   const canResendWelcomeEmail = (status?: string): boolean => {
+    console.log('🔍 canResendWelcomeEmail called with status:', status);
+
     // If status is undefined/missing, assume it's a new customer (FORCE_CHANGE_PASSWORD)
     // This handles cases where the backend doesn't return user_status immediately after creation
-    if (!status) {
+    if (status === undefined) {
+      console.log('✅ Status is undefined, allowing resend (new customer)');
       return true; // Allow resend for new customers
     }
-    return status === 'FORCE_CHANGE_PASSWORD' || status === 'RESET_REQUIRED';
+
+    const canResend = status === 'FORCE_CHANGE_PASSWORD' || status === 'RESET_REQUIRED';
+    console.log(`${canResend ? '✅' : '❌'} Can resend:`, canResend);
+    return canResend;
   };
 
   // Helper function to get user-friendly status display
   const getUserStatusDisplay = (status?: string): { text: string; color: string } => {
+    // Log the actual status for debugging
+    if (customer) {
+      console.log('🔍 getUserStatusDisplay called with status:', status, 'Type:', typeof status);
+    }
+
     switch (status) {
       case 'FORCE_CHANGE_PASSWORD':
         return { text: 'Temporary Password', color: 'yellow' };
@@ -50,10 +61,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       case 'RESET_REQUIRED':
         return { text: 'Reset Required', color: 'red' };
       case undefined:
-      case '':
-        // If status is missing, assume new customer with temporary password
+        // Only treat truly undefined status as new customer
+        // Don't treat empty string or other values as new customer
         return { text: 'Temporary Password', color: 'yellow' };
+      case '':
+        // Empty string should be treated as unknown, not new customer
+        console.warn('⚠️ Received empty string for user_status');
+        return { text: 'Unknown', color: 'gray' };
       default:
+        console.warn('⚠️ Unknown user_status:', status);
         return { text: status || 'Unknown', color: 'gray' };
     }
   };
@@ -71,6 +87,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     setError(null);
     try {
       const data = await api.getCustomer(customerId);
+      console.log('📦 Customer data received:', data);
+      console.log('👤 user_status:', data.user_status, 'Type:', typeof data.user_status);
       setCustomer(data);
       setFormData({
         name: data.name,
