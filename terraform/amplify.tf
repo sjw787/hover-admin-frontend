@@ -8,7 +8,8 @@ resource "aws_amplify_app" "frontend" {
   # GitHub access token for repository access
   access_token = var.github_access_token
 
-  # Build settings for Next.js
+  # Build settings for Next.js SSR on WEB_COMPUTE
+  # Deploy full .next output - simpler and more compatible with Amplify
   build_spec = <<-EOT
     version: 1
     frontend:
@@ -46,18 +47,9 @@ resource "aws_amplify_app" "frontend" {
   # Platform - WEB_COMPUTE required for SSR
   platform = "WEB_COMPUTE"
 
-  # Custom headers for security
-  custom_rule {
-    source = "/<*>"
-    status = "404"
-    target = "/index.html"
-  }
-
-  custom_rule {
-    source = "</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json|webp)$)([^.]+$)/>"
-    status = "200"
-    target = "/index.html"
-  }
+  # For SSR apps, don't use custom redirect rules
+  # Let the Next.js server handle all routing
+  # Removed: custom_rule blocks that redirect to /index.html
 
   tags = {
     Name = "${var.project_name}-${var.environment}"
@@ -171,12 +163,21 @@ resource "aws_route53_record" "amplify_domain" {
   provider = aws.personal
 
   zone_id = var.route53_zone_id
-  name    = var.environment == "prod" ? "admin" : "${var.environment}.admin"
+  name    = var.environment == "prod" ? var.domain_name : "${var.environment}.${var.domain_name}"
   type    = "CNAME"
   ttl     = 300
 
-  # Point to Amplify's default domain
-  records = ["${aws_amplify_branch.main.branch_name}.${aws_amplify_app.frontend.default_domain}"]
+  # Point to Amplify's CloudFront distribution
+  # The dns_record format is "prefix CNAME cloudfront-domain.net"
+  # We extract the CloudFront domain from the first sub_domain in the set
+  records = [
+    element(
+      split(" ",
+        [for s in aws_amplify_domain_association.main[0].sub_domain : s.dns_record][0]
+      ),
+      2
+    )
+  ]
 
   depends_on = [aws_amplify_domain_association.main]
 }

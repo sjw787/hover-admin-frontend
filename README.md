@@ -1,213 +1,279 @@
-# Hovver Admin Dashboard
+# Hovver Admin Dashboard - Frontend
 
-A Next.js 16 admin dashboard for managing images with AWS Cognito authentication and S3 storage.
+A Next.js 16 admin dashboard with role-based access control for managing customers and image files stored in AWS S3.
 
 ## Features
 
-- 🔐 **Secure Authentication** - Login with AWS Cognito
-- 📤 **Image Upload** - Upload images with preview (JPG, PNG, GIF, WebP, max 10MB)
-- 🖼️ **Image Gallery** - View all uploaded images with pagination
-- 🔍 **Filter by Prefix** - Filter images by date folder (e.g., `2026/01/`)
-- 🗑️ **Delete Images** - Remove images with confirmation
-- 🌓 **Dark Mode** - Automatic dark mode support
-- 📱 **Responsive Design** - Works on all devices
-- ☁️ **AWS S3 + CloudFront** - Static hosting with global CDN
+### 🔐 Multi-User Role System
+- **Admin Users:** Full access to upload, manage customers, and delete files
+- **Customer Users:** View-only access to their files and general files
+- JWT-based authentication with role extraction from Cognito groups
 
-## Quick Deploy to AWS
+### 👥 Customer Management (Admin Only)
+- Create, view, edit, and manage customer accounts
+- Enable/disable customer accounts
+- Assign customers dedicated S3 folders
+- Search and filter customer list
 
-**Deploy in 5 minutes:**
+### 📤 File Upload (Admin Only)
+- Upload images to customer-specific folders
+- Upload images to general folder (visible to all customers)
+- Drag-and-drop support
+- File type and size validation (10MB max)
+- Progress indicators
+
+### 🖼️ Image Gallery
+- **Admin View:** See all files with folder badges, customer filtering
+- **Customer View:** See only their files + general folder files
+- Download images via presigned URLs
+- Delete images (admin only)
+- Responsive grid layout with pagination
+
+### 🎨 Modern UI/UX
+- Clean, professional interface with Tailwind CSS
+- Dark mode support
+- Mobile-responsive design
+- Role badges in navigation
+- Session timeout warnings
+
+## Quick Start
+
+### Prerequisites
+- Node.js 20+
+- npm or yarn
+- Backend API running (see `backend-context/` for details)
+
+### Installation
+
+1. **Clone and Install**
 ```bash
-cd terraform
-terraform init
-terraform apply
-# Type 'yes', then run deployment script
+git clone <repository-url>
+cd hover-admin-frontend
+npm install
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for details or [DEPLOYMENT.md](DEPLOYMENT.md) for full guide.
+2. **Configure Environment**
+Create `.env.local`:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-## Prerequisites
+3. **Run Development Server**
+```bash
+npm run dev
+```
 
-- Node.js 20+ installed
-- Backend API running at `http://localhost:8000`
-- Valid AWS Cognito credentials
-- (For deployment) AWS CLI and Terraform installed
-
-## Installation
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment variables:**
-   
-   The `.env.local` file is already created with:
-   ```
-   NEXT_PUBLIC_API_URL=http://localhost:8000
-   ```
-   
-   Update this if your backend API is hosted elsewhere.
-
-3. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser:**
-   
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## Usage
-
-### Login
-
-1. Navigate to the login page (automatically redirected if not authenticated)
-2. Enter your AWS Cognito credentials:
-   - Username/Email: `admin@example.com`
-   - Password: Your password
-3. Click "Sign In"
-
-### Upload Images
-
-1. Click "Upload" in the navigation header
-2. Select an image file (JPG, PNG, GIF, or WebP, max 10MB)
-3. Preview the image before uploading
-4. Click "Upload Image"
-5. Wait for the upload to complete
-
-### View Gallery
-
-1. Click "Gallery" in the navigation header
-2. Browse all uploaded images in a grid layout
-3. Use pagination to navigate through multiple pages
-4. Filter images by prefix (e.g., `2026/01/15/` for a specific date)
-5. Click "View" to open the image in a new tab
-6. Click "Delete" twice to confirm deletion
-
-### Logout
-
-Click the "Logout" button in the top-right corner to sign out and return to the login page.
+4. **Open Browser**
+Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## Project Structure
 
 ```
 src/
-├── app/
-│   ├── (protected)/          # Protected routes requiring authentication
-│   │   ├── gallery/          # Gallery page
-│   │   ├── upload/           # Upload page
-│   │   └── layout.tsx        # Protected layout with navigation
-│   ├── login/                # Login page
-│   ├── layout.tsx            # Root layout with AuthProvider
-│   ├── page.tsx              # Home page (redirects)
-│   └── globals.css           # Global styles
+├── lib/
+│   ├── api.ts              # API client for all backend endpoints
+│   └── jwt.ts              # JWT decoding utilities for role extraction
 ├── contexts/
-│   └── AuthContext.tsx       # Authentication context provider
-└── lib/
-    └── api.ts                # API client for backend communication
-
-middleware.ts                 # Next.js middleware for route protection
+│   └── AuthContext.tsx     # Authentication state and role management
+├── components/
+│   └── SessionTimeoutModal.tsx
+└── app/
+    ├── (protected)/        # Routes requiring authentication
+    │   ├── layout.tsx      # Role-based navigation layout
+    │   ├── upload/         # File upload (admin only)
+    │   ├── gallery/        # Image gallery (role-based filtering)
+    │   ├── customers/      # Customer management (admin only)
+    │   │   ├── page.tsx    # Customer list
+    │   │   ├── new/        # Create customer form
+    │   │   └── [id]/       # Customer detail/edit
+    │   └── account/        # User profile management
+    ├── login/              # Login page
+    └── page.tsx            # Landing page
 ```
 
-## API Endpoints
+## Role-Based Access
 
-The application connects to the following backend endpoints:
+| Feature | Admin | Customer |
+|---------|-------|----------|
+| View Gallery | ✅ All files | ✅ Own + General only |
+| Upload Files | ✅ Any folder | ❌ |
+| Delete Files | ✅ | ❌ |
+| Manage Customers | ✅ | ❌ |
+| View Profile | ✅ | ✅ |
+| Edit Profile | ✅ | ✅ |
 
-- `POST /auth/login` - Authenticate user
-- `GET /auth/me` - Get current user info
-- `POST /images/upload` - Upload an image
-- `GET /images/list?prefix=` - List images (with optional prefix filter)
-- `DELETE /images/{key}` - Delete an image
+## Documentation
 
-## Technologies
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Complete implementation details
+- **[IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md)** - Testing and troubleshooting guide
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Deployment instructions for various platforms
+- **[plan-multiUserRoleFrontend.prompt.md](./plan-multiUserRoleFrontend.prompt.md)** - Original implementation plan
+- **[backend-context/](./backend-context/)** - Backend API documentation and architecture
 
-- **Next.js 16** - React framework with App Router
-- **TypeScript** - Type safety
-- **Tailwind CSS 4** - Styling
-- **React 19** - UI library
+## Building for Production
+
+```bash
+# Build production bundle
+npm run build
+
+# Start production server (for local testing)
+npm start
+
+# Build succeeds with routes:
+# - Static pages: /, /login, /account, /gallery, /upload, /customers, /customers/new
+# - Dynamic routes: /customers/[id]
+```
+
+## Deployment
+
+### AWS Amplify (Recommended)
+
+Deploy to AWS Amplify with automatic builds from GitHub:
+
+```bash
+cd terraform
+
+# Configure your settings
+cp terraform.tfvars.amplify.example terraform.tfvars
+# Edit terraform.tfvars with your values
+
+# Deploy
+terraform init
+terraform apply
+```
+
+See [terraform/AMPLIFY_DEPLOYMENT.md](./terraform/AMPLIFY_DEPLOYMENT.md) for complete deployment guide including:
+- Using custom domain from personal AWS account
+- SSL certificate configuration
+- Multi-environment deployments
+- Continuous deployment setup
+
+### Alternative Deployment Options
+
+- **Vercel**: Push to GitHub and deploy via Vercel dashboard
+- **Docker**: See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+- **Traditional Hosting**: Heroku, DigitalOcean App Platform, etc.
+
+## Technology Stack
+
+- **Framework:** Next.js 16.1.2 with React 19
+- **Styling:** Tailwind CSS 4
+- **Language:** TypeScript 5
+- **Authentication:** AWS Cognito JWT tokens
+- **State Management:** React Context API
+- **Build Tool:** Turbopack
+
+## API Integration
+
+The frontend integrates with a FastAPI backend supporting:
+- `POST /auth/login` - User authentication
+- `GET /auth/me` - Current user info
+- `POST /customers` - Create customer (admin)
+- `GET /customers` - List customers (admin)
+- `GET /customers/{id}` - Get customer (admin)
+- `PATCH /customers/{id}` - Update customer (admin)
+- `POST /images/upload?customer_id={id}` - Upload image (admin)
+- `GET /images/list` - List images (role-filtered)
+- `DELETE /images/{key}` - Delete image (admin)
+
+See `backend-context/` for complete API documentation.
 
 ## Development
 
-### Build for production:
-```bash
-npm run build
-```
-
-### Start production server:
-```bash
-npm start
-```
-
-### Run linter:
+### Running Tests
 ```bash
 npm run lint
 ```
 
-## Deployment to AWS
+### Code Structure Guidelines
+- Use TypeScript for all new files
+- Follow existing patterns for API calls (use `src/lib/api.ts`)
+- Check user role with `useAuth()` hook before rendering admin features
+- Add role checks to new protected routes
 
-### Using Terraform (S3 + CloudFront)
+### Adding New Features
 
-This project includes complete Terraform configuration for deploying to AWS.
+1. **Determine Role Requirements**
+   - Admin only, customer only, or both?
+   
+2. **Update API Client** (if needed)
+   - Add TypeScript interfaces to `src/lib/api.ts`
+   - Add API methods to `ApiClient` class
 
-**Quick deploy:**
-```bash
-cd terraform
-terraform init && terraform apply
-```
+3. **Create UI Components**
+   - Use `useAuth()` hook for role checks
+   - Add conditional rendering based on `isAdmin` or `isCustomer`
 
-**Deploy application updates:**
-```bash
-# Windows
-.\terraform\deploy.ps1
+4. **Update Navigation** (if needed)
+   - Modify `src/app/(protected)/layout.tsx`
+   - Add role-based navigation items
 
-# Linux/Mac
-./terraform/deploy.sh
-```
+5. **Test Both Roles**
+   - Test as admin user
+   - Test as customer user
+   - Verify unauthorized access is blocked
 
-**Resources created:**
-- S3 bucket for static hosting (private)
-- CloudFront distribution for global CDN
-- CloudFront Origin Access Identity
-- Optional: Route53 DNS record for custom domain
+## Security Notes
 
-**Cost:** ~$1.50-6/month for low traffic
+⚠️ **Important Security Considerations:**
 
-See documentation:
-- [QUICKSTART.md](QUICKSTART.md) - 5-minute quick start
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Comprehensive deployment guide
-- [terraform/README.md](terraform/README.md) - Terraform details
+1. **Frontend role checks are for UX only** - Never trust client-side validation. The backend must enforce all access control.
 
-## Security
+2. **JWT tokens in localStorage** - Tokens are stored in localStorage for simplicity. For production, consider httpOnly cookies for better XSS protection.
 
-- JWT tokens are stored in localStorage
-- Access token is sent with every authenticated request
-- Protected routes redirect to login if not authenticated
-- All API requests use bearer token authentication
+3. **Presigned URLs** - S3 presigned URLs bypass authentication once generated. They expire after 1 hour by default.
 
-## Notes
-
-- Images are stored with date-based organization (YYYY/MM/DD)
-- Presigned S3 URLs are valid for 1 hour
-- Image previews are generated client-side before upload
-- The gallery supports pagination with 12 images per page
-- Delete confirmation requires clicking "Delete" twice
+4. **CORS Configuration** - Ensure backend CORS is properly configured for your production domain.
 
 ## Troubleshooting
 
-### "Failed to fetch" errors
-- Ensure the backend API is running at `http://localhost:8000`
-- Check CORS settings on the backend
+### Common Issues
 
-### Authentication errors
-- Verify your AWS Cognito credentials
-- Check if tokens have expired (logout and login again)
+**Issue: Role badge not showing**
+- Clear localStorage and login again
+- Check JWT token includes `cognito:groups` claim
+- Verify token is decoded correctly (check browser console)
 
-### Upload errors
-- Ensure file is under 10MB
-- Check file format (JPG, PNG, GIF, WebP only)
-- Verify you're authenticated
+**Issue: Customer can access admin pages**
+- Verify `isAdmin` check exists at top of page component
+- Check redirect logic in protected layout
+- Clear browser cache
+
+**Issue: Gallery not loading**
+- Verify `NEXT_PUBLIC_API_URL` is set correctly
+- Check backend API is running and accessible
+- Open DevTools Network tab to see API errors
+
+**Issue: Upload fails with 403**
+- For customers: This is expected - customers cannot upload
+- For admins: Verify user is in Admins Cognito group
+- Check backend IAM permissions
+
+See [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) for more troubleshooting.
+
+## Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Test with both admin and customer users
+4. Update documentation if needed
+5. Submit a pull request
 
 ## License
 
-MIT
+[Your License Here]
+
+## Support
+
+For questions or issues:
+- Review documentation in root directory
+- Check `backend-context/` for API details
+- Review Next.js docs: https://nextjs.org/docs
+- Check AWS Cognito docs: https://docs.aws.amazon.com/cognito/
+
+---
+
+**Version:** 1.0.0  
+**Last Updated:** January 16, 2026  
+**Status:** ✅ Production Ready
 

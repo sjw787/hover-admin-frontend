@@ -34,10 +34,9 @@ output "amplify_console_url" {
 output "dns_instructions" {
   description = "DNS configuration instructions"
   value = var.domain_name != "" ? format(
-    "Custom Domain Configuration:\n============================\nDomain: %s\n\nIf DNS is not automatically configured, add the following CNAME record in Route53:\n\nName: %s\nType: CNAME\nValue: %s\n\nSSL Certificate will be automatically provisioned by Amplify.",
+    "Custom Domain Configuration:\n============================\nDomain: %s\n\nIf DNS is not automatically configured, add the following CNAME record in Route53:\n\nName: %s\nType: CNAME\nValue: [From Amplify Console - Domain management]\n\nSSL Certificate will be automatically provisioned by Amplify.",
     var.environment == "prod" ? var.domain_name : "${var.environment}.${var.domain_name}",
-    var.environment == "prod" ? "@" : var.environment,
-    aws_amplify_app.frontend.default_domain
+    var.environment == "prod" ? "@" : var.environment
   ) : "Using default Amplify domain - no DNS configuration needed"
 }
 
