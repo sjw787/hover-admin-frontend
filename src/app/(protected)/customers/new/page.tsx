@@ -27,15 +27,55 @@ export default function NewCustomerPage() {
     return null;
   }
 
-  // E.164 phone number validation and helper
-  const validatePhoneNumber = (phone: string): { isValid: boolean; error?: string; suggestion?: string } => {
+  // Auto-format phone number to E.164 format
+  const formatToE164 = (phone: string): string => {
+    if (!phone) return '';
+
+    // Remove all non-digit characters except +
+    const cleaned = phone.replace(/[^\d+]/g, '');
+
+    // If already starts with +, validate and return
+    if (cleaned.startsWith('+')) {
+      return cleaned;
+    }
+
+    // Extract only digits
+    const digitsOnly = cleaned.replace(/\+/g, '');
+
+    // US/Canada formats (10 or 11 digits)
+    if (digitsOnly.length === 10) {
+      // (555) 123-4567 or 555-123-4567 → +15551234567
+      return `+1${digitsOnly}`;
+    }
+
+    if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      // 1-555-123-4567 → +15551234567
+      return `+${digitsOnly}`;
+    }
+
+    // If it looks like it might have a country code already
+    if (digitsOnly.length > 10 && digitsOnly.length <= 15) {
+      // Assume first 1-3 digits are country code
+      return `+${digitsOnly}`;
+    }
+
+    // Default: assume US/Canada for 10 digit numbers
+    if (digitsOnly.length === 10) {
+      return `+1${digitsOnly}`;
+    }
+
+    // Return with + prefix if it has any digits
+    return digitsOnly ? `+${digitsOnly}` : cleaned;
+  };
+
+  const validateE164 = (phone: string): { isValid: boolean; error?: string } => {
     if (!phone || phone.trim() === '') {
       return { isValid: true }; // Optional field
     }
 
     const trimmed = phone.trim();
 
-    // E.164 format: +[country code 1-3 digits][subscriber number 4-14 digits]
+    // E.164 format: +[country code 1-3 digits][subscriber number]
     // Total length: 8-15 characters (including +)
     const e164Regex = /^\+[1-9]\d{1,14}$/;
 
@@ -43,82 +83,58 @@ export default function NewCustomerPage() {
       return { isValid: true };
     }
 
-    // Provide helpful suggestions
     if (!trimmed.startsWith('+')) {
-      // Try to guess country code
-      if (/^\d{10}$/.test(trimmed)) {
-        return {
-          isValid: false,
-          error: 'Phone number must include country code',
-          suggestion: `+1${trimmed}`
-        };
-      }
       return {
         isValid: false,
-        error: 'Phone number must start with + and country code (e.g., +1 for US)',
-        suggestion: trimmed.startsWith('1') ? `+${trimmed}` : `+1${trimmed}`
+        error: 'Phone number must start with +'
       };
     }
 
     if (trimmed.length < 8) {
       return {
         isValid: false,
-        error: 'Phone number is too short (minimum 8 digits including country code)'
+        error: 'Phone number is too short'
       };
     }
 
     if (trimmed.length > 15) {
       return {
         isValid: false,
-        error: 'Phone number is too long (maximum 15 digits including country code)'
+        error: 'Phone number is too long'
       };
     }
 
     if (!/^\+[0-9]+$/.test(trimmed)) {
       return {
         isValid: false,
-        error: 'Phone number can only contain + and digits (no spaces, dashes, or parentheses)'
-      };
-    }
-
-    if (/^\+0/.test(trimmed)) {
-      return {
-        isValid: false,
-        error: 'Country code cannot start with 0'
+        error: 'Phone number can only contain + and digits'
       };
     }
 
     return {
       isValid: false,
-      error: 'Invalid phone number format. Use E.164 format: +[country code][number]'
+      error: 'Invalid phone number format'
     };
   };
 
   const handlePhoneChange = (value: string) => {
-    setFormData({ ...formData, phone_number: value });
+    // Auto-format as user types
+    const formatted = formatToE164(value);
+    setFormData({ ...formData, phone_number: formatted });
 
-    if (!value || value.trim() === '') {
+    if (!formatted || formatted.trim() === '') {
       setPhoneError(null);
       setPhoneHelp(null);
       return;
     }
 
-    const validation = validatePhoneNumber(value);
+    const validation = validateE164(formatted);
     if (!validation.isValid) {
       setPhoneError(validation.error || null);
-      setPhoneHelp(validation.suggestion ? `Try: ${validation.suggestion}` : null);
+      setPhoneHelp(null);
     } else {
       setPhoneError(null);
-      setPhoneHelp('✓ Valid E.164 format');
-    }
-  };
-
-  const applySuggestion = () => {
-    const validation = validatePhoneNumber(formData.phone_number || '');
-    if (validation.suggestion) {
-      setFormData({ ...formData, phone_number: validation.suggestion });
-      setPhoneError(null);
-      setPhoneHelp('✓ Valid E.164 format');
+      setPhoneHelp('✓ Valid');
     }
   };
 
@@ -129,7 +145,7 @@ export default function NewCustomerPage() {
 
     // Validate phone number before submission
     if (formData.phone_number && formData.phone_number.trim() !== '') {
-      const validation = validatePhoneNumber(formData.phone_number);
+      const validation = validateE164(formData.phone_number);
       if (!validation.isValid) {
         setError(validation.error || 'Invalid phone number format');
         setIsSubmitting(false);
@@ -338,26 +354,12 @@ export default function NewCustomerPage() {
                 ? 'border-green-500 dark:border-green-500'
                 : 'border-gray-300 dark:border-gray-600'
             }`}
-            placeholder="+12345678900"
+            placeholder="(555) 123-4567 or +12345678900"
           />
 
           {/* Error message */}
           {phoneError && (
-            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm">
-              <p className="text-red-700 dark:text-red-300">{phoneError}</p>
-              {phoneHelp && (
-                <div className="mt-2 flex items-center gap-2">
-                  <p className="text-red-600 dark:text-red-400 font-medium">{phoneHelp}</p>
-                  <button
-                    type="button"
-                    onClick={applySuggestion}
-                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
-                  >
-                    Use This
-                  </button>
-                </div>
-              )}
-            </div>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">{phoneError}</p>
           )}
 
           {/* Success message */}
@@ -368,7 +370,7 @@ export default function NewCustomerPage() {
           {/* Help text */}
           {!phoneError && !phoneHelp && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              E.164 format: +[country code][number] (e.g., +12345678900 for US)
+              Enter any format - we&apos;ll automatically format it (e.g., (555) 123-4567 becomes +15551234567)
             </p>
           )}
         </div>

@@ -32,6 +32,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   // Helper function to determine if resend welcome email is allowed
   const canResendWelcomeEmail = (status?: string): boolean => {
+    // If status is undefined/missing, assume it's a new customer (FORCE_CHANGE_PASSWORD)
+    // This handles cases where the backend doesn't return user_status immediately after creation
+    if (!status) {
+      return true; // Allow resend for new customers
+    }
     return status === 'FORCE_CHANGE_PASSWORD' || status === 'RESET_REQUIRED';
   };
 
@@ -44,6 +49,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         return { text: 'Active', color: 'green' };
       case 'RESET_REQUIRED':
         return { text: 'Reset Required', color: 'red' };
+      case undefined:
+      case '':
+        // If status is missing, assume new customer with temporary password
+        return { text: 'Temporary Password', color: 'yellow' };
       default:
         return { text: status || 'Unknown', color: 'gray' };
     }
@@ -343,23 +352,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                   User Status
                 </label>
-                {customer.user_status ? (
-                  <span
-                    className={`inline-block px-3 py-1 text-sm font-medium rounded ${
-                      getUserStatusDisplay(customer.user_status).color === 'green'
-                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
-                        : getUserStatusDisplay(customer.user_status).color === 'yellow'
-                        ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-200'
-                        : getUserStatusDisplay(customer.user_status).color === 'red'
-                        ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
-                        : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200'
-                    }`}
-                  >
-                    {getUserStatusDisplay(customer.user_status).text}
-                  </span>
-                ) : (
-                  <span className="text-gray-500 dark:text-gray-400 text-sm">Not available</span>
-                )}
+                <span
+                  className={`inline-block px-3 py-1 text-sm font-medium rounded ${
+                    getUserStatusDisplay(customer.user_status).color === 'green'
+                      ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
+                      : getUserStatusDisplay(customer.user_status).color === 'yellow'
+                      ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-200'
+                      : getUserStatusDisplay(customer.user_status).color === 'red'
+                      ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
+                      : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  {getUserStatusDisplay(customer.user_status).text}
+                </span>
               </div>
 
               <div>
