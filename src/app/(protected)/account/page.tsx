@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { formatPhoneWithCountry, formatPhoneForDisplay, validateE164, COUNTRY_CODES } from '@/lib/phoneValidation';
 
 export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
@@ -10,10 +11,16 @@ export default function AccountPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Phone validation state
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneHelp, setPhoneHelp] = useState<string | null>(null);
+  const [phoneCountry, setPhoneCountry] = useState<string>('US');
+  const [displayPhoneNumber, setDisplayPhoneNumber] = useState<string>('');
+
   // Profile form state
   const [profileData, setProfileData] = useState({
     full_name: '',
-    phone_number: '',
+    phone_number: '', // Stores E.164 format
   });
 
   // Password form state
@@ -32,10 +39,17 @@ export default function AccountPage() {
 
         // Extract profile data from Cognito attributes
         const attributes = userInfo.attributes || {};
+        const phoneNumber = attributes.phone_number || '';
+
         setProfileData({
           full_name: attributes.name || attributes.full_name || '',
-          phone_number: attributes.phone_number || '',
+          phone_number: phoneNumber,
         });
+
+        // Set display phone number
+        if (phoneNumber) {
+          setDisplayPhoneNumber(formatPhoneForDisplay(phoneNumber, phoneCountry));
+        }
 
         console.log('✅ Profile data loaded:', profileData);
       } catch (error) {
@@ -49,11 +63,46 @@ export default function AccountPage() {
     loadUserProfile();
   }, []); // Run once on mount
 
+  const handlePhoneChange = (value: string) => {
+    // Store E.164 format
+    const e164Formatted = formatPhoneWithCountry(value, phoneCountry);
+    setProfileData({ ...profileData, phone_number: e164Formatted });
+
+    // Format for display
+    const displayFormatted = formatPhoneForDisplay(e164Formatted, phoneCountry);
+    setDisplayPhoneNumber(displayFormatted);
+
+    if (!e164Formatted || e164Formatted.trim() === '') {
+      setPhoneError(null);
+      setPhoneHelp(null);
+      return;
+    }
+
+    const validation = validateE164(e164Formatted);
+    if (!validation.isValid) {
+      setPhoneError(validation.error || null);
+      setPhoneHelp(null);
+    } else {
+      setPhoneError(null);
+      setPhoneHelp('✓ Valid');
+    }
+  };
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
+
+    // Validate phone number before submission
+    if (profileData.phone_number && profileData.phone_number.trim() !== '') {
+      const validation = validateE164(profileData.phone_number);
+      if (!validation.isValid) {
+        setErrorMessage(validation.error || 'Invalid phone number format');
+        setIsLoading(false);
+        return;
+      }
+    }
 
     try {
       await api.updateProfile(profileData);
@@ -174,19 +223,64 @@ export default function AccountPage() {
 
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Phone Number
+                  Phone Number (Optional)
                 </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  value={profileData.phone_number}
-                  onChange={(e) => setProfileData({ ...profileData, phone_number: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="+1234567890"
-                />
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Format: +[country code][number] (e.g., +1234567890)
-                </p>
+                <div className="flex gap-2">
+                  {/* Country dropdown */}
+                  <select
+                    value={phoneCountry}
+                    onChange={(e) => {
+                      const newCountry = e.target.value;
+                      setPhoneCountry(newCountry);
+                      // Re-format phone with new country code
+                      if (profileData.phone_number) {
+                        const formatted = formatPhoneWithCountry(profileData.phone_number.replace(/^\+\d+/, ''), newCountry);
+                        setProfileData({ ...profileData, phone_number: formatted });
+                        setDisplayPhoneNumber(formatPhoneForDisplay(formatted, newCountry));
+                      }
+                    }}
+                    className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+                  >
+                    {Object.entries(COUNTRY_CODES).map(([code, country]) => (
+                      <option key={code} value={code}>
+                        {code} +{country.code}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Phone input */}
+                  <input
+                    id="phone"
+                    type="tel"
+                    value={displayPhoneNumber}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                      phoneError
+                        ? 'border-red-500 dark:border-red-500'
+                        : phoneHelp && phoneHelp.startsWith('✓')
+                        ? 'border-green-500 dark:border-green-500'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                    placeholder={phoneCountry === 'US' ? '(555) 123-4567' : 'Phone number'}
+                  />
+                </div>
+
+                {/* Error message */}
+                {phoneError && (
+                  <p className="mt-1 text-sm text-red-700 dark:text-red-300">{phoneError}</p>
+                )}
+
+                {/* Success message */}
+                {!phoneError && phoneHelp && phoneHelp.startsWith('✓') && (
+                  <p className="mt-1 text-sm text-green-600 dark:text-green-400">{phoneHelp}</p>
+                )}
+
+                {/* Help text */}
+                {!phoneError && !phoneHelp && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Enter your phone number and select your country. We&apos;ll format it automatically.
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end">

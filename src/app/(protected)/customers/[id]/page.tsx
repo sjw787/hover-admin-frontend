@@ -5,6 +5,7 @@ import { api, type CustomerProfile, type UpdateCustomerRequest } from '@/lib/api
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { formatPhoneWithCountry, formatPhoneForDisplay, validateE164, COUNTRY_CODES } from '@/lib/phoneValidation';
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { isAdmin, isLoading: authLoading } = useAuth();
@@ -14,7 +15,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<UpdateCustomerRequest>({
+  const [formData, setFormData] = useState<UpdateCustomerRequest>( {
     name: '',
     phone_number: '',
     enabled: true,
@@ -24,6 +25,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [newTemporaryPassword, setNewTemporaryPassword] = useState<string | null>(null);
+
+  // Phone validation state
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneHelp, setPhoneHelp] = useState<string | null>(null);
+  const [phoneCountry, setPhoneCountry] = useState<string>('US');
+  const [displayPhoneNumber, setDisplayPhoneNumber] = useState<string>('');
 
   // Unwrap params Promise (Next.js 15+)
   useEffect(() => {
@@ -95,6 +102,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         phone_number: data.phone_number || '',
         enabled: data.enabled,
       });
+
+      // Set display phone number
+      if (data.phone_number) {
+        setDisplayPhoneNumber(formatPhoneForDisplay(data.phone_number, phoneCountry));
+      }
     } catch (err) {
       console.error('Error loading customer:', err);
       setError(err instanceof Error ? err.message : 'Failed to load customer');
@@ -110,12 +122,47 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, customerId]);
 
+  const handlePhoneChange = (value: string) => {
+    // Store E.164 format
+    const e164Formatted = formatPhoneWithCountry(value, phoneCountry);
+    setFormData({ ...formData, phone_number: e164Formatted });
+
+    // Format for display
+    const displayFormatted = formatPhoneForDisplay(e164Formatted, phoneCountry);
+    setDisplayPhoneNumber(displayFormatted);
+
+    if (!e164Formatted || e164Formatted.trim() === '') {
+      setPhoneError(null);
+      setPhoneHelp(null);
+      return;
+    }
+
+    const validation = validateE164(e164Formatted);
+    if (!validation.isValid) {
+      setPhoneError(validation.error || null);
+      setPhoneHelp(null);
+    } else {
+      setPhoneError(null);
+      setPhoneHelp('✓ Valid');
+    }
+  };
+
   const handleSave = async () => {
     if (!customer) return;
 
     setIsSaving(true);
     setError(null);
     setSuccessMessage(null);
+
+    // Validate phone number before submission
+    if (formData.phone_number && formData.phone_number.trim() !== '') {
+      const validation = validateE164(formData.phone_number);
+      if (!validation.isValid) {
+        setError(validation.error || 'Invalid phone number format');
+        setIsSaving(false);
+        return;
+      }
+    }
 
     try {
       const payload: UpdateCustomerRequest = {
@@ -294,15 +341,63 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone Number
+                Phone Number (Optional)
               </label>
-              <input
-                type="tel"
-                value={formData.phone_number}
-                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="+12345678900"
-              />
+              <div className="flex gap-2">
+                {/* Country dropdown */}
+                <select
+                  value={phoneCountry}
+                  onChange={(e) => {
+                    const newCountry = e.target.value;
+                    setPhoneCountry(newCountry);
+                    // Re-format phone with new country code
+                    if (formData.phone_number) {
+                      const formatted = formatPhoneWithCountry(formData.phone_number.replace(/^\+\d+/, ''), newCountry);
+                      setFormData({ ...formData, phone_number: formatted });
+                      setDisplayPhoneNumber(formatPhoneForDisplay(formatted, newCountry));
+                    }
+                  }}
+                  className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                >
+                  {Object.entries(COUNTRY_CODES).map(([code, country]) => (
+                    <option key={code} value={code}>
+                      {code} +{country.code}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Phone input */}
+                <input
+                  type="tel"
+                  value={displayPhoneNumber}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={`flex-1 px-4 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                    phoneError 
+                      ? 'border-red-500 dark:border-red-500' 
+                      : phoneHelp && phoneHelp.startsWith('✓')
+                      ? 'border-green-500 dark:border-green-500'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder={phoneCountry === 'US' ? '(555) 123-4567' : 'Phone number'}
+                />
+              </div>
+
+              {/* Error message */}
+              {phoneError && (
+                <p className="mt-1 text-sm text-red-700 dark:text-red-300">{phoneError}</p>
+              )}
+
+              {/* Success message */}
+              {!phoneError && phoneHelp && phoneHelp.startsWith('✓') && (
+                <p className="mt-1 text-sm text-green-600 dark:text-green-400">{phoneHelp}</p>
+              )}
+
+              {/* Help text */}
+              {!phoneError && !phoneHelp && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Select your country and enter your phone number. We&apos;ll format it automatically.
+                </p>
+              )}
             </div>
 
             <div>
