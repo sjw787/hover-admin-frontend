@@ -30,6 +30,25 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     params.then(p => setCustomerId(p.id));
   }, [params]);
 
+  // Helper function to determine if resend welcome email is allowed
+  const canResendWelcomeEmail = (status?: string): boolean => {
+    return status === 'FORCE_CHANGE_PASSWORD' || status === 'RESET_REQUIRED';
+  };
+
+  // Helper function to get user-friendly status display
+  const getUserStatusDisplay = (status?: string): { text: string; color: string } => {
+    switch (status) {
+      case 'FORCE_CHANGE_PASSWORD':
+        return { text: 'Temporary Password', color: 'yellow' };
+      case 'CONFIRMED':
+        return { text: 'Active', color: 'green' };
+      case 'RESET_REQUIRED':
+        return { text: 'Reset Required', color: 'red' };
+      default:
+        return { text: status || 'Unknown', color: 'gray' };
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && !isAdmin) {
       router.push('/gallery');
@@ -105,9 +124,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const handleResendWelcomeEmail = async () => {
     if (!customer) return;
 
-    // Check if customer already set their password
-    if (customer.user_status === 'CONFIRMED') {
-      alert('Customer has already set their own password.\n\nThey should use the "Forgot Password" feature on the login page if they need to reset it.');
+    // Check if resend is allowed based on user_status
+    // Per API spec: Only allow resend for FORCE_CHANGE_PASSWORD or RESET_REQUIRED
+    if (!canResendWelcomeEmail(customer.user_status)) {
+      if (customer.user_status === 'CONFIRMED') {
+        alert('Customer has already set their own password.\n\nThey should use the "Forgot Password" feature on the login page if they need to reset it.');
+      } else {
+        alert(`Cannot resend welcome email for customers with status: ${customer.user_status || 'unknown'}\n\nPlease contact support if you need assistance.`);
+      }
       return;
     }
 
@@ -125,11 +149,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       setNewTemporaryPassword(result.temporary_password);
       setResendSuccess(true);
       setSuccessMessage(result.message);
+
+      // Reload customer data to get updated status
+      await loadCustomer();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to resend welcome email';
 
       // Check if it's the "already set password" error
-      if (errorMessage.includes('already set their own password')) {
+      if (errorMessage.includes('already set their own password') ||
+          errorMessage.includes('already set their password')) {
         setError('Cannot resend welcome email. Customer has already set their own password. They should use the "Forgot Password" feature on the login page instead.');
       } else {
         setError(errorMessage);
@@ -298,7 +326,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
               <div>
                 <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Status
+                  Account Status
                 </label>
                 <span
                   className={`inline-block px-3 py-1 text-sm font-medium rounded ${
@@ -309,6 +337,29 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 >
                   {customer.enabled ? 'Active' : 'Disabled'}
                 </span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  User Status
+                </label>
+                {customer.user_status ? (
+                  <span
+                    className={`inline-block px-3 py-1 text-sm font-medium rounded ${
+                      getUserStatusDisplay(customer.user_status).color === 'green'
+                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
+                        : getUserStatusDisplay(customer.user_status).color === 'yellow'
+                        ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-200'
+                        : getUserStatusDisplay(customer.user_status).color === 'red'
+                        ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    {getUserStatusDisplay(customer.user_status).text}
+                  </span>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">Not available</span>
+                )}
               </div>
 
               <div>
@@ -363,13 +414,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </Link>
                 <button
                   onClick={handleResendWelcomeEmail}
-                  disabled={isResendingEmail || customer.user_status === 'CONFIRMED'}
+                  disabled={isResendingEmail || !canResendWelcomeEmail(customer.user_status)}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    customer.user_status === 'CONFIRMED'
-                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white'
+                    canResendWelcomeEmail(customer.user_status)
+                      ? 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white'
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   }`}
-                  title={customer.user_status === 'CONFIRMED' ? 'Customer has already set their password' : undefined}
+                  title={
+                    customer.user_status === 'CONFIRMED'
+                      ? 'Customer has already set their password'
+                      : !canResendWelcomeEmail(customer.user_status)
+                      ? `Cannot resend for status: ${customer.user_status || 'unknown'}`
+                      : undefined
+                  }
                 >
                   {isResendingEmail ? 'Sending...' : '📧 Resend Welcome Email'}
                 </button>
@@ -382,15 +439,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       Customer has already set their password and can log in normally
                     </p>
                     <p className="text-gray-600 dark:text-gray-400">
-                      If they forgot their password, they should use the "Forgot Password" link on the login page
+                      If they forgot their password, they should use the &quot;Forgot Password&quot; link on the login page
                     </p>
                   </div>
                 </div>
-              ) : (
+              ) : canResendWelcomeEmail(customer.user_status) ? (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Resends welcome email with a new temporary password. Only works if customer hasn't set their own password yet.
+                  Resends welcome email with a new temporary password. Only works if customer hasn&apos;t set their own password yet.
                   <br />
-                  Use this if the customer didn't receive the original email or if the temporary password expired (7 days)
+                  Use this if the customer didn&apos;t receive the original email or if the temporary password expired (7 days)
+                </p>
+              ) : (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  Resend welcome email is not available for this customer&apos;s current status: {customer.user_status || 'unknown'}
                 </p>
               )}
             </div>

@@ -14,6 +14,20 @@ export default function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Helper function to get user-friendly status display
+  const getUserStatusDisplay = (status?: string): { text: string; color: string } => {
+    switch (status) {
+      case 'FORCE_CHANGE_PASSWORD':
+        return { text: 'Needs Setup', color: 'yellow' };
+      case 'CONFIRMED':
+        return { text: 'Setup Complete', color: 'green' };
+      case 'RESET_REQUIRED':
+        return { text: 'Reset Required', color: 'red' };
+      default:
+        return { text: status || 'Unknown', color: 'gray' };
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && !isAdmin) {
       router.push('/gallery');
@@ -135,31 +149,48 @@ export default function CustomersPage() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {customer.name}
                   </h3>
-                <span
-                  className={`px-2 py-1 text-xs font-medium rounded ${
-                    customer.enabled
-                      ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
-                      : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
-                  }`}
-                >
-                  {customer.enabled ? 'Active' : 'Disabled'}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                {customer.email}
-              </p>
-              {customer.phone_number && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  {customer.phone_number}
+                  <span
+                    className={`px-2 py-1 text-xs font-medium rounded ${
+                      customer.enabled
+                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200'
+                        : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
+                    }`}
+                  >
+                    {customer.enabled ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  {customer.email}
                 </p>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">
-                ID: {customer.customer_id}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Created: {new Date(customer.created_date).toLocaleDateString()}
-              </p>
-            </Link>
+                {customer.phone_number && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    {customer.phone_number}
+                  </p>
+                )}
+                {customer.user_status && (
+                  <div className="mb-2">
+                    <span
+                      className={`inline-block px-2 py-1 text-xs font-medium rounded ${
+                        getUserStatusDisplay(customer.user_status).color === 'green'
+                          ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+                          : getUserStatusDisplay(customer.user_status).color === 'yellow'
+                          ? 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800'
+                          : getUserStatusDisplay(customer.user_status).color === 'red'
+                          ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                          : 'bg-gray-50 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800'
+                      }`}
+                    >
+                      {getUserStatusDisplay(customer.user_status).text}
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">
+                  ID: {customer.customer_id}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500">
+                  Created: {new Date(customer.created_date).toLocaleDateString()}
+                </p>
+              </Link>
             );
           })}
         </div>

@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "hovver-admin-dashboard-collection",
-		"name": "Hover Admin Dashboard API",
-		"description": "Complete API collection for testing the Hovver Admin Dashboard backend with AWS Cognito authentication, role-based access control, customer management, and S3 image management.",
+		"name": "Hovver Admin Dashboard API",
+		"description": "Complete API collection for testing the Hovver Admin Dashboard backend with AWS Cognito authentication, role-based access control, customer management, S3 image management, and automated email notifications via AWS SES.\\n\\n**Email Features:**\\n- Automatic welcome emails when customers are created (noreply@samwylock.com)\\n- Resend welcome emails with new temporary passwords\\n- Professional HTML email templates\\n- Verified domain: samwylock.com\\n\\n**Key Features:**\\n- JWT-based authentication with Cognito\\n- Role-based access (Admin, Customer)\\n- Customer profile management\\n- Organized S3 storage (customer-specific folders)\\n- Image upload and management\\n- Presigned URL generation for secure file access",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"auth": {
@@ -739,7 +739,7 @@
 								"customers"
 							]
 						},
-						"description": "Create a new customer profile. Admin only. Creates user in Cognito and assigns to Customers group.\\n\\nA secure temporary password is automatically generated (16 characters) and returned in the response. The admin should provide this password to the customer. Customer must change this password on first login.\\n\\nEmail is required and used as the username. Phone number is optional but must be in E.164 format if provided (e.g., +12025551234)."
+						"description": "Create a new customer profile. Admin only. Creates user in Cognito and assigns to Customers group.\\n\\n**Welcome Email:**\\nA welcome email is automatically sent to the customer via AWS SES (noreply@samwylock.com) containing their temporary password and login instructions.\\n\\n**Password:**\\nA secure temporary password is automatically generated (16 characters with uppercase, lowercase, numbers, and special characters). The password is included in both the API response and the welcome email. Customer must change this password on first login.\\n\\n**Required Fields:**\\n- email: Used as the username (required)\\n- name: Customer's full name (required)\\n\\n**Optional Fields:**\\n- phone_number: Must be in E.164 format if provided (e.g., +12025551234)\\n\\n**Email Delivery:**\\nIf email delivery fails, the customer is still created successfully. The temporary password is returned in the API response and can be resent using the /customers/{customer_id}/resend-welcome endpoint."
 					},
 					"response": []
 				},
@@ -761,7 +761,7 @@
 									"    pm.expect(jsonData).to.have.property('count');",
 									"});",
 									"",
-									"pm.test(\"Customers have required fields\", function () {",
+									"pm.test(\"Customers have required fields including user_status\", function () {",
 									"    var jsonData = pm.response.json();",
 									"    if (jsonData.customers.length > 0) {",
 									"        var customer = jsonData.customers[0];",
@@ -771,6 +771,13 @@
 									"        pm.expect(customer).to.have.property('customer_folder');",
 									"        pm.expect(customer).to.have.property('created_date');",
 									"        pm.expect(customer).to.have.property('enabled');",
+									"        pm.expect(customer).to.have.property('user_status');",
+									"        ",
+									"        // Log status summary for frontend implementation",
+									"        console.log('Customer status:', customer.user_status);",
+									"        var canResend = customer.user_status === 'FORCE_CHANGE_PASSWORD' || ",
+									"                        customer.user_status === 'RESET_REQUIRED';",
+									"        console.log('Show resend button:', canResend);",
 									"    }",
 									"});"
 								],
@@ -818,6 +825,22 @@
 									"    pm.expect(jsonData).to.have.property('email');",
 									"    pm.expect(jsonData).to.have.property('name');",
 									"    pm.expect(jsonData).to.have.property('customer_folder');",
+									"    pm.expect(jsonData).to.have.property('user_status');",
+									"    console.log('Customer status:', jsonData.user_status);",
+									"});",
+									"",
+									"pm.test(\"user_status indicates if resend is available\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var canResend = jsonData.user_status === 'FORCE_CHANGE_PASSWORD' || ",
+									"                    jsonData.user_status === 'RESET_REQUIRED';",
+									"    console.log('Can resend welcome email:', canResend);",
+									"    ",
+									"    if (canResend) {",
+									"        console.log('✅ Frontend should SHOW \"Resend Welcome Email\" button');",
+									"    } else {",
+									"        console.log('❌ Frontend should HIDE \"Resend Welcome Email\" button');",
+									"        console.log('   Customer should use forgot password flow instead');",
+									"    }",
 									"});"
 								],
 								"type": "text/javascript"
@@ -837,7 +860,7 @@
 								"{{customer_id}}"
 							]
 						},
-						"description": "Get detailed information about a specific customer. Admin only. Returns customer profile including S3 folder path and account status."
+						"description": "Get detailed information about a specific customer. Admin only. Returns customer profile including S3 folder path and account status.\\n\\n**Response includes user_status field:**\\n- FORCE_CHANGE_PASSWORD: Customer has temporary password, hasn't logged in yet (resend welcome email available)\\n- CONFIRMED: Customer has completed initial login and set their own password (resend not available, use forgot password)\\n- RESET_REQUIRED: Password reset required\\n- Other statuses: See AWS Cognito documentation\\n\\nFrontend can use user_status to determine if 'Resend Welcome Email' button should be shown. Show button only when user_status is 'FORCE_CHANGE_PASSWORD' or 'RESET_REQUIRED'."
 					},
 					"response": []
 				},
@@ -1048,7 +1071,7 @@
 					]
 				}
 			],
-			"description": "Customer management endpoints for admins. Create, list, view, and update customer profiles. Customers are organized with dedicated S3 folders."
+			"description": "Customer management endpoints for admins. Create, list, view, and update customer profiles. Customers are organized with dedicated S3 folders.\\n\\n**Email Integration:**\\n- Welcome emails automatically sent when customers are created\\n- Emails include temporary password and login instructions\\n- Resend capability for expired or lost passwords\\n- Sent via AWS SES from noreply@samwylock.com\\n\\n**Customer Lifecycle:**\\n1. Admin creates customer (POST /customers)\\n2. Welcome email sent automatically with temporary password\\n3. Customer logs in and must change password\\n4. If email not received, admin can resend (POST /customers/{id}/resend-welcome)\\n5. After customer sets password, use forgot password flow for resets"
 		},
 		{
 			"name": "Image Management",
