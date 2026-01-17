@@ -74,10 +74,29 @@ export function getCustomerId(token: string): string | null {
 /**
  * Extract email from JWT token
  * Returns email or null
+ *
+ * Note: Access tokens typically don't include email claim.
+ * Email is usually in the ID token. This function will check both.
  */
 export function getEmail(token: string): string | null {
   const claims = parseJwt(token);
-  return claims?.email || null;
+  console.log('🔍 JWT Claims:', claims);
+  console.log('📧 Email from claims:', claims?.email);
+  console.log('👤 Cognito username:', claims?.['cognito:username']);
+
+  // Check email field first
+  if (claims?.email) {
+    return claims.email;
+  }
+
+  // Check if cognito:username is an email (Cognito often uses email as username)
+  const username = claims?.['cognito:username'];
+  if (username && username.includes('@')) {
+    console.log('✅ Using cognito:username as email:', username);
+    return username;
+  }
+
+  return null;
 }
 
 /**

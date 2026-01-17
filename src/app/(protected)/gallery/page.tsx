@@ -23,6 +23,21 @@ export default function GalleryPage() {
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Handle customer query parameter FIRST (before loading images)
+  useEffect(() => {
+    const customerId = searchParams?.get('customer');
+    console.log('📍 Query param effect - customer:', customerId, 'isAdmin:', isAdmin);
+
+    if (customerId && isAdmin) {
+      console.log('✅ Setting selected customer from URL param:', customerId);
+      setSelectedCustomer(customerId);
+    }
+
+    // Mark as initialized after checking query params
+    setIsInitialized(true);
+  }, [searchParams, isAdmin]);
 
   // Load customers for admin filter
   useEffect(() => {
@@ -30,14 +45,6 @@ export default function GalleryPage() {
       loadCustomers();
     }
   }, [isAdmin]);
-
-  // Handle customer query parameter
-  useEffect(() => {
-    const customerId = searchParams?.get('customer');
-    if (customerId && isAdmin) {
-      setSelectedCustomer(customerId);
-    }
-  }, [searchParams, isAdmin]);
 
   const loadCustomers = async () => {
     setIsLoadingCustomers(true);
@@ -52,12 +59,16 @@ export default function GalleryPage() {
   };
 
   const loadImages = async () => {
+    console.log('🔄 loadImages called - prefix:', prefix, 'selectedCustomer:', selectedCustomer, 'isAdmin:', isAdmin);
+
     setIsLoading(true);
     setError(null);
     try {
       // Build prefix based on selected customer or custom prefix
       let searchPrefix = prefix;
+
       if (isAdmin && selectedCustomer && !prefix) {
+        console.log('✅ Applying customer filter for:', selectedCustomer);
         if (selectedCustomer === '__general__') {
           searchPrefix = 'general/';
         } else {
@@ -65,12 +76,14 @@ export default function GalleryPage() {
         }
       }
 
+      console.log('📡 Calling API with prefix:', searchPrefix);
       const response = await api.listImages(searchPrefix || undefined);
 
       // Reset error and loading states for new images
       setImageErrors(new Set());
       setImageLoading(new Set());
       setImages(response.images);
+      console.log('✅ Images loaded:', response.images.length);
     } catch (err) {
       console.error('Error loading images:', err);
       setError(err instanceof Error ? err.message : 'Failed to load images');
@@ -79,9 +92,17 @@ export default function GalleryPage() {
     }
   };
 
+  // Only load images after initialization is complete
   useEffect(() => {
+    if (!isInitialized) {
+      console.log('⏸️ Skipping loadImages - not initialized yet');
+      return;
+    }
+
+    console.log('▶️ Running loadImages effect - initialized:', isInitialized);
     loadImages();
-  }, [prefix, selectedCustomer, isAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefix, selectedCustomer, isAdmin, isInitialized]);
 
   const handleDelete = async (key: string) => {
     if (deleteConfirm !== key) {

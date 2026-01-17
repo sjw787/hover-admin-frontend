@@ -14,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   userRole: 'admin' | 'customer' | null;
   customerId: string | null;
+  userEmail: string | null;
   isAdmin: boolean;
   isCustomer: boolean;
 }
@@ -30,13 +31,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'customer' | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const router = useRouter();
 
   const loadUser = useCallback(async () => {
     console.log('🔄 loadUser called');
     try {
       const accessToken = localStorage.getItem('access_token');
+      const idToken = localStorage.getItem('id_token');
       console.log('🔑 Access token exists:', !!accessToken);
+      console.log('🆔 ID token exists:', !!idToken);
 
       if (!accessToken) {
         console.log('❌ No access token found');
@@ -44,14 +48,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Decode role and customer ID from token
+      // Decode role and customer ID from access token (has groups)
       const role = getUserRole(accessToken);
       const custId = getCustomerId(accessToken);
-      const emailFromToken = getEmail(accessToken);
-      console.log('👤 Decoded role:', role, 'Customer ID:', custId, 'Email:', emailFromToken);
+      console.log('👤 Decoded from access token - role:', role, 'Customer ID:', custId);
 
+      // Decode email from ID token (has user attributes)
+      let emailFromToken = null;
+      if (idToken) {
+        emailFromToken = getEmail(idToken);
+        console.log('📧 Decoded email from ID token:', emailFromToken);
+      } else {
+        console.warn('⚠️ No ID token available, trying access token for email');
+        emailFromToken = getEmail(accessToken);
+      }
+
+      console.log('🔧 Setting userEmail state to:', emailFromToken);
       setUserRole(role);
       setCustomerId(custId);
+      setUserEmail(emailFromToken); // Set email immediately from token
+      console.log('✅ userEmail state set (async, will update on next render)');
 
       console.log('📡 Fetching current user...');
       const userData = await api.getCurrentUser();
@@ -93,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setUserRole(null);
     setCustomerId(null);
+    setUserEmail(null);
     setShowTimeoutModal(false);
     router.push('/login');
   }, [router]);
@@ -181,10 +198,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Decode role and customer ID from token
       const role = getUserRole(response.access_token);
       const custId = getCustomerId(response.access_token);
-      console.log('👤 Decoded role:', role, 'Customer ID:', custId);
+      const emailFromToken = getEmail(response.id_token); // Use ID token for email!
+      console.log('👤 Decoded role:', role, 'Customer ID:', custId, 'Email:', emailFromToken);
 
       setUserRole(role);
       setCustomerId(custId);
+      setUserEmail(emailFromToken); // Set email immediately from token
 
       // Load user data
       console.log('👤 Loading user data...');
@@ -219,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     userRole,
     customerId,
+    userEmail,
     isAdmin: userRole === 'admin',
     isCustomer: userRole === 'customer',
   };

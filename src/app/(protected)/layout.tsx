@@ -10,10 +10,13 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, logout, user, isAdmin, userRole } = useAuth();
+  const { isAuthenticated, isLoading, logout, user, isAdmin, userRole, userEmail } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Log email values for debugging
+  console.log('🎨 Layout render - userEmail:', userEmail, 'user?.email:', user?.email, 'user?.username:', user?.username);
 
   useEffect(() => {
     console.log('🛡️ ProtectedLayout effect:', { isLoading, isAuthenticated, pathname });
@@ -105,7 +108,7 @@ export default function ProtectedLayout({
               <div className="flex items-center space-x-4">
                 <div className="flex flex-col items-end">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {user?.email || user?.username}
+                    {userEmail || user?.email || user?.username}
                   </span>
                   {userRole && (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded ${
@@ -226,7 +229,7 @@ export default function ProtectedLayout({
             <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
               <div className="px-5">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  {user?.email || user?.username}
+                  {userEmail || user?.email || user?.username}
                 </div>
                 {userRole && (
                   <div className={`inline-block text-xs font-medium px-2 py-0.5 rounded mb-3 ${

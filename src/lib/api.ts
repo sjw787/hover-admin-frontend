@@ -366,8 +366,11 @@ class ApiClient {
     try {
       const url = new URL(`${API_URL}/images/list`);
       if (prefix) {
+        console.log('🔍 Listing images with prefix:', prefix);
         url.searchParams.append('prefix', prefix);
       }
+
+      console.log("🔗 Fetching images from URL:", url.toString());
 
       const response = await fetch(url.toString(), {
         headers: this.getAuthHeader(),
@@ -541,6 +544,7 @@ class ApiClient {
         customer_folder: result.customer_folder || result.folder || `customers/${result.customer_id || result.id || customerId}`,
         created_date: result.created_date || result.createdDate || result.created_at || new Date().toISOString(),
         enabled: result.enabled !== undefined ? result.enabled : true,
+        user_status: result.user_status || result.status  || undefined,
       };
 
       return customer;
