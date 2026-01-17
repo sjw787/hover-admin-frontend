@@ -30,11 +30,19 @@ export default function NewCustomerPage() {
     setError(null);
 
     try {
-      const payload = {
-        ...formData,
-        phone_number: formData.phone_number || undefined,
+      // Prepare payload - remove phone_number if empty
+      const payload: CreateCustomerRequest = {
+        email: formData.email,
+        name: formData.name,
+        temporary_password: formData.temporary_password,
       };
 
+      // Only add phone_number if it has a value
+      if (formData.phone_number && formData.phone_number.trim() !== '') {
+        payload.phone_number = formData.phone_number.trim();
+      }
+
+      console.log('Creating customer with payload:', { ...payload, temporary_password: '***' });
       const customer = await api.createCustomer(payload);
       setSuccess(true);
 
