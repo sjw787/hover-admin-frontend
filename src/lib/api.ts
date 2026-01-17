@@ -73,6 +73,7 @@ export interface CustomerProfile {
   created_date: string;
   enabled: boolean;
   temporary_password?: string; // Returned only on customer creation
+  user_status?: string; // Cognito user status: FORCE_CHANGE_PASSWORD, CONFIRMED, etc.
 }
 
 export interface CreateCustomerRequest {
