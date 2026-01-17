@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type User, type LoginCredentials } from '@/lib/api';
-import { getUserRole, getCustomerId } from '@/lib/jwt';
+import { getUserRole, getCustomerId, getEmail } from '@/lib/jwt';
 import SessionTimeoutModal from '@/components/SessionTimeoutModal';
 
 interface AuthContextType {
@@ -47,7 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Decode role and customer ID from token
       const role = getUserRole(accessToken);
       const custId = getCustomerId(accessToken);
-      console.log('👤 Decoded role:', role, 'Customer ID:', custId);
+      const emailFromToken = getEmail(accessToken);
+      console.log('👤 Decoded role:', role, 'Customer ID:', custId, 'Email:', emailFromToken);
 
       setUserRole(role);
       setCustomerId(custId);
@@ -55,6 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('📡 Fetching current user...');
       const userData = await api.getCurrentUser();
       console.log('✅ User loaded:', userData.username);
+
+      // Ensure email is set - use email from JWT if API doesn't return it
+      if (!userData.email && emailFromToken) {
+        userData.email = emailFromToken;
+        console.log('📧 Set email from JWT token:', emailFromToken);
+      }
+
       setUser(userData);
     } catch (error) {
       console.error('❌ Failed to load user:', error);

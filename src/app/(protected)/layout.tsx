@@ -51,76 +51,79 @@ export default function ProtectedLayout({
               </h1>
             </div>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-4">
-              {isAdmin && (
-                <Link
-                  href="/upload"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === '/upload'
-                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  Upload
-                </Link>
-              )}
-              <Link
-                href="/gallery"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/gallery'
-                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                Gallery
-              </Link>
-              {isAdmin && (
-                <Link
-                  href="/customers"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname?.startsWith('/customers')
-                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  Customers
-                </Link>
-              )}
-              <Link
-                href="/account"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/account'
-                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                Account
-              </Link>
-            </nav>
-
-            {/* Desktop User Menu */}
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="flex flex-col items-end">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {user?.email || user?.username}
-                </span>
-                {userRole && (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                    userRole === 'admin' 
-                      ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200' 
-                      : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
-                  }`}>
-                    {userRole === 'admin' ? 'Admin' : 'Customer'}
-                  </span>
+            {/* Desktop Navigation and User Menu - grouped together */}
+            <div className="hidden md:flex items-center space-x-8">
+              {/* Navigation Links */}
+              <nav className="flex space-x-4">
+                {isAdmin && (
+                  <Link
+                    href="/upload"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      pathname === '/upload'
+                        ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Upload
+                  </Link>
                 )}
+                <Link
+                  href="/gallery"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname === '/gallery'
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Gallery
+                </Link>
+                {isAdmin && (
+                  <Link
+                    href="/customers"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      pathname?.startsWith('/customers')
+                        ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Customers
+                  </Link>
+                )}
+                <Link
+                  href="/account"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname === '/account'
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Account
+                </Link>
+              </nav>
+
+              {/* User Menu */}
+              <div className="flex items-center space-x-4">
+                <div className="flex flex-col items-end">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {user?.email || user?.username}
+                  </span>
+                  {userRole && (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                      userRole === 'admin' 
+                        ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200' 
+                        : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
+                    }`}>
+                      {userRole === 'admin' ? 'Admin' : 'Customer'}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors"
+                >
+                  Logout
+                </button>
               </div>
-              <button
-                onClick={logout}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors"
-              >
-                Logout
-              </button>
             </div>
 
             {/* Mobile Menu Button */}

@@ -72,6 +72,15 @@ export function getCustomerId(token: string): string | null {
 }
 
 /**
+ * Extract email from JWT token
+ * Returns email or null
+ */
+export function getEmail(token: string): string | null {
+  const claims = parseJwt(token);
+  return claims?.email || null;
+}
+
+/**
  * Check if user is admin
  */
 export function isAdmin(token: string): boolean {

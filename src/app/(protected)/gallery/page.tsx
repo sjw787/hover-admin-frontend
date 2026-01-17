@@ -81,8 +81,7 @@ export default function GalleryPage() {
 
   useEffect(() => {
     loadImages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefix, selectedCustomer]);
+  }, [prefix, selectedCustomer, isAdmin]);
 
   const handleDelete = async (key: string) => {
     if (deleteConfirm !== key) {
