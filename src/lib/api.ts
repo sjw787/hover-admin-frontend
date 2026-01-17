@@ -446,8 +446,21 @@ class ApiClient {
       }
 
       const result = await response.json();
-      console.log('✅ Customer created:', result.customer_id);
-      return result;
+      console.log('✅ Customer created - raw response:', result);
+
+      // Transform response to ensure customer_id is present
+      const customer: CustomerProfile = {
+        customer_id: result.customer_id || result.id || result.customerId || '',
+        email: result.email || '',
+        name: result.name || '',
+        phone_number: result.phone_number || result.phoneNumber,
+        customer_folder: result.customer_folder || result.folder || `customers/${result.customer_id || result.id}`,
+        created_date: result.created_date || result.createdDate || result.created_at || new Date().toISOString(),
+        enabled: result.enabled !== undefined ? result.enabled : true,
+      };
+
+      console.log('✅ Customer created - transformed:', customer.customer_id);
+      return customer;
     } catch (error) {
       console.error('❌ Create customer error:', error);
       throw error;
@@ -473,6 +486,26 @@ class ApiClient {
 
       const result = await response.json();
       console.log('✅ Customers fetched:', result.count);
+
+      // Log first customer to debug field names
+      if (result.customers && result.customers.length > 0) {
+        console.log('📋 Sample customer data:', result.customers[0]);
+      }
+
+      // Transform response to ensure customer_id is present
+      // Backend might return different field names
+      if (result.customers) {
+        result.customers = result.customers.map((customer: any) => ({
+          customer_id: customer.customer_id || customer.id || customer.customerId || '',
+          email: customer.email || '',
+          name: customer.name || '',
+          phone_number: customer.phone_number || customer.phoneNumber,
+          customer_folder: customer.customer_folder || customer.folder || `customers/${customer.customer_id || customer.id}`,
+          created_date: customer.created_date || customer.createdDate || customer.created_at || new Date().toISOString(),
+          enabled: customer.enabled !== undefined ? customer.enabled : true,
+        }));
+      }
+
       return result;
     } catch (error) {
       console.error('❌ List customers error:', error);
@@ -495,8 +528,20 @@ class ApiClient {
       }
 
       const result = await response.json();
-      console.log('✅ Customer fetched:', result.email);
-      return result;
+      console.log('✅ Customer fetched - raw response:', result);
+
+      // Transform response to ensure customer_id is present
+      const customer: CustomerProfile = {
+        customer_id: result.customer_id || result.id || result.customerId || customerId,
+        email: result.email || '',
+        name: result.name || '',
+        phone_number: result.phone_number || result.phoneNumber,
+        customer_folder: result.customer_folder || result.folder || `customers/${result.customer_id || result.id || customerId}`,
+        created_date: result.created_date || result.createdDate || result.created_at || new Date().toISOString(),
+        enabled: result.enabled !== undefined ? result.enabled : true,
+      };
+
+      return customer;
     } catch (error) {
       console.error('❌ Get customer error:', error);
       throw error;
