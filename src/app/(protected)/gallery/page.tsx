@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { api, type ImageMetadata, type CustomerProfile } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function GalleryPage() {
   const { isAdmin } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [images, setImages] = useState<ImageMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,9 +207,17 @@ export default function GalleryPage() {
                     id="customerFilter"
                     value={selectedCustomer}
                     onChange={(e) => {
-                      setSelectedCustomer(e.target.value);
+                      const newCustomer = e.target.value;
+                      setSelectedCustomer(newCustomer);
                       setPrefix(''); // Clear custom prefix when selecting customer
                       setCurrentPage(1);
+
+                      // Update URL query parameter
+                      if (newCustomer) {
+                        router.push(`/gallery?customer=${newCustomer}`);
+                      } else {
+                        router.push('/gallery');
+                      }
                     }}
                     className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
                   >
@@ -225,6 +234,7 @@ export default function GalleryPage() {
                       onClick={() => {
                         setSelectedCustomer('');
                         setCurrentPage(1);
+                        router.push('/gallery'); // Remove query parameter
                       }}
                       className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white whitespace-nowrap flex-shrink-0"
                     >
