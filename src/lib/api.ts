@@ -575,6 +575,34 @@ class ApiClient {
       throw error;
     }
   }
+
+  async resendWelcomeEmail(customerId: string): Promise<{
+    customer_id: string;
+    email: string;
+    temporary_password: string;
+    message: string
+  }> {
+    console.log('📧 Resending welcome email for customer:', customerId);
+
+    try {
+      const response = await this.fetchWithTimeout(`${API_URL}/customers/${customerId}/resend-welcome`, {
+        method: 'POST',
+        headers: this.getAuthHeader(),
+      }, 15000);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Failed to resend welcome email' }));
+        throw new Error(error.detail || 'Failed to resend welcome email');
+      }
+
+      const result = await response.json();
+      console.log('✅ Welcome email resent:', result.message);
+      return result;
+    } catch (error) {
+      console.error('❌ Resend welcome email error:', error);
+      throw error;
+    }
+  }
 }
 
 export const api = new ApiClient();

@@ -21,6 +21,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string>('');
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [newTemporaryPassword, setNewTemporaryPassword] = useState<string | null>(null);
 
   // Unwrap params Promise (Next.js 15+)
   useEffect(() => {
@@ -97,6 +100,35 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
     setIsEditing(false);
     setError(null);
+  };
+
+  const handleResendWelcomeEmail = async () => {
+    if (!customer) return;
+
+    if (!confirm(`Resend welcome email to ${customer.email}?\n\nThis will generate a new temporary password and send it to the customer.`)) {
+      return;
+    }
+
+    setIsResendingEmail(true);
+    setError(null);
+    setSuccessMessage(null);
+    setResendSuccess(false);
+
+    try {
+      const result = await api.resendWelcomeEmail(customer.customer_id);
+      setNewTemporaryPassword(result.temporary_password);
+      setResendSuccess(true);
+      setSuccessMessage(result.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend welcome email');
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
+  const handleClosePasswordModal = () => {
+    setResendSuccess(false);
+    setNewTemporaryPassword(null);
   };
 
   if (authLoading || !isAdmin) {
@@ -309,16 +341,86 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-              <Link
-                href={`/gallery?customer=${customer.customer_id}`}
-                className="inline-block px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors"
-              >
-                View Customer Files →
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                  href={`/gallery?customer=${customer.customer_id}`}
+                  className="inline-block px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium transition-colors text-center"
+                >
+                  View Customer Files →
+                </Link>
+                <button
+                  onClick={handleResendWelcomeEmail}
+                  disabled={isResendingEmail}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  {isResendingEmail ? 'Sending...' : '📧 Resend Welcome Email'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Use this if the customer didn't receive the original email or if the temporary password expired (7 days)
+              </p>
             </div>
           </>
         )}
       </div>
+
+      {/* Password Modal */}
+      {resendSuccess && newTemporaryPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="text-green-600 dark:text-green-400 text-5xl mb-4">✓</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                Welcome Email Sent!
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                A new welcome email has been sent to {customer.email}
+              </p>
+            </div>
+
+            {/* Generated Password Section */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-2 mb-3">
+                <div className="text-yellow-600 dark:text-yellow-400 text-xl">⚠️</div>
+                <div>
+                  <h4 className="font-bold text-gray-900 dark:text-white text-sm mb-1">
+                    New Temporary Password
+                  </h4>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">
+                    This password has been emailed to the customer. You can also provide it directly if needed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 rounded p-3 mb-3">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Password:
+                </label>
+                <code className="block text-base font-mono bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white break-all">
+                  {newTemporaryPassword}
+                </code>
+              </div>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(newTemporaryPassword);
+                  alert('Password copied to clipboard!');
+                }}
+                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-sm"
+              >
+                📋 Copy Password
+              </button>
+            </div>
+
+            <button
+              onClick={handleClosePasswordModal}
+              className="w-full px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
