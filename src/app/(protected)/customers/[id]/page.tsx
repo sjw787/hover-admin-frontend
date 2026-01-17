@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function CustomerDetailPage({ params }: { params: { id: string } }) {
+export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
@@ -20,6 +20,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     enabled: true,
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string>('');
+
+  // Unwrap params Promise (Next.js 15+)
+  useEffect(() => {
+    params.then(p => setCustomerId(p.id));
+  }, [params]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -28,10 +34,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   }, [isAdmin, authLoading, router]);
 
   const loadCustomer = async () => {
+    if (!customerId) return; // Wait for customerId to be set
+
     setIsLoading(true);
     setError(null);
     try {
-      const data = await api.getCustomer(params.id);
+      const data = await api.getCustomer(customerId);
       setCustomer(data);
       setFormData({
         name: data.name,
@@ -47,11 +55,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && customerId) {
       loadCustomer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, params.id]);
+  }, [isAdmin, customerId]);
 
   const handleSave = async () => {
     if (!customer) return;

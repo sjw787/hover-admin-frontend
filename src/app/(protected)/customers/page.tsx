@@ -25,6 +25,15 @@ export default function CustomersPage() {
     setError(null);
     try {
       const response = await api.listCustomers();
+      console.log('📦 Customers loaded in page:', response.customers.length);
+      console.log('📋 First customer:', response.customers[0]);
+
+      // Verify all customers have customer_id
+      const invalidCustomers = response.customers.filter(c => !c.customer_id);
+      if (invalidCustomers.length > 0) {
+        console.error('⚠️ Found customers without customer_id:', invalidCustomers);
+      }
+
       setCustomers(response.customers);
     } catch (err) {
       console.error('Error loading customers:', err);
@@ -40,11 +49,13 @@ export default function CustomersPage() {
     }
   }, [isAdmin]);
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.customer_id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCustomers = customers
+    .filter(customer => customer.customer_id) // Only include customers with valid IDs
+    .filter(customer =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.customer_id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   if (authLoading || !isAdmin) {
     return null;
@@ -108,16 +119,22 @@ export default function CustomersPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCustomers.map((customer) => (
-            <Link
-              key={customer.customer_id}
-              href={`/customers/${customer.customer_id}`}
-              className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {customer.name}
-                </h3>
+          {filteredCustomers.map((customer) => {
+            // Debug logging
+            if (!customer.customer_id) {
+              console.error('🚨 Rendering customer without ID:', customer);
+            }
+
+            return (
+              <Link
+                key={customer.customer_id}
+                href={`/customers/${customer.customer_id}`}
+                className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {customer.name}
+                  </h3>
                 <span
                   className={`px-2 py-1 text-xs font-medium rounded ${
                     customer.enabled
@@ -143,7 +160,8 @@ export default function CustomersPage() {
                 Created: {new Date(customer.created_date).toLocaleDateString()}
               </p>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
