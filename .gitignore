@@ -36,6 +36,7 @@ lerna-debug.log*
 # local env files (keep .env.example if you have one)
 .env
 .env*.local
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
