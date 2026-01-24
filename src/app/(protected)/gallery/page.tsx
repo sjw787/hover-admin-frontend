@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { api, type ImageMetadata, type CustomerProfile } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Lightbox from 'yet-another-react-lightbox';
+import 'yet-another-react-lightbox/styles.css';
 
 export default function GalleryPage() {
   const { isAdmin } = useAuth();
@@ -19,6 +21,10 @@ export default function GalleryPage() {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [imageLoading, setImageLoading] = useState<Set<string>>(new Set());
   const imagesPerPage = 12;
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Admin-only: customer filter
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
@@ -138,6 +144,16 @@ export default function GalleryPage() {
       newSet.delete(key);
       return newSet;
     });
+  };
+
+  const handleImageClick = (imageKey: string) => {
+    // Find the index in the filtered list of images with URLs
+    const imagesWithUrls = images.filter(img => img.url && img.url.trim() !== '');
+    const index = imagesWithUrls.findIndex(img => img.key === imageKey);
+    if (index !== -1) {
+      setLightboxIndex(index);
+      setLightboxOpen(true);
+    }
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -366,9 +382,10 @@ export default function GalleryPage() {
                         </div>
                       )}
                       <div
-                        className="w-full h-full bg-cover bg-center bg-no-repeat"
+                        className="w-full h-full bg-cover bg-center bg-no-repeat cursor-pointer hover:opacity-90 transition-opacity"
                         style={{ backgroundImage: `url(${image.url})` }}
                         title={image.key}
+                        onClick={() => handleImageClick(image.key)}
                         onLoad={() => handleImageLoad(image.key)}
                       />
                       {/* Hidden img tag to trigger load events */}
@@ -426,14 +443,12 @@ export default function GalleryPage() {
                   {/* Actions */}
                   <div className="mt-4 flex space-x-2">
                     {image.url && image.url.trim() !== '' ? (
-                      <a
-                        href={image.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => handleImageClick(image.key)}
                         className="flex-1 text-center px-3 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded text-xs font-medium transition-colors"
                       >
                         View
-                      </a>
+                      </button>
                     ) : (
                       <button
                         disabled
@@ -489,6 +504,19 @@ export default function GalleryPage() {
           )}
         </>
       )}
+
+      {/* Lightbox */}
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={images
+          .filter(img => img.url && img.url.trim() !== '')
+          .map(img => ({
+            src: img.url,
+            alt: img.key.split('/').pop() || img.key,
+          }))}
+        index={lightboxIndex}
+      />
     </div>
   );
 }
