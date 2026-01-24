@@ -278,7 +278,7 @@ export default function AccountPage() {
                 {/* Help text */}
                 {!phoneError && !phoneHelp && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Enter your phone number and select your country. We&apos;ll format it automatically.
+                    Enter your phone number and select your country.
                   </p>
                 )}
               </div>
