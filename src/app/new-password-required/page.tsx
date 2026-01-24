@@ -1,20 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Toast, { type ToastType } from '@/components/Toast';
 
 interface NewPasswordRequiredPageProps {
-  searchParams?: { username?: string };
+  searchParams?: Promise<{ username?: string }>;
 }
 
 export default function NewPasswordRequiredPage({ searchParams }: NewPasswordRequiredPageProps) {
-  const [username, setUsername] = useState(searchParams?.username || '');
+  const [username, setUsername] = useState('');
   const [temporaryPassword, setTemporaryPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const router = useRouter();
+
+  // Unwrap searchParams Promise
+  useEffect(() => {
+    if (searchParams) {
+      searchParams.then(params => {
+        if (params.username) {
+          setUsername(params.username);
+        }
+      });
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +43,6 @@ export default function NewPasswordRequiredPage({ searchParams }: NewPasswordReq
 
     try {
       // Call the login endpoint with the temporary password first
-      // The backend should detect this is a new user and handle the password change
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -65,9 +77,15 @@ export default function NewPasswordRequiredPage({ searchParams }: NewPasswordReq
             throw new Error(changeError.detail || 'Failed to set new password');
           }
 
-          // Password changed successfully, redirect to login
-          alert('Password changed successfully! Please login with your new password.');
-          router.push('/login');
+          // Password changed successfully
+          setToast({
+            message: 'Password changed successfully! Redirecting to login...',
+            type: 'success'
+          });
+
+          setTimeout(() => {
+            router.push('/login');
+          }, 2000);
           return;
         }
         
@@ -85,6 +103,15 @@ export default function NewPasswordRequiredPage({ searchParams }: NewPasswordReq
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="w-full max-w-md">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
           <div className="mb-8 text-center">

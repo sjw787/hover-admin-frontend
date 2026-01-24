@@ -26,6 +26,9 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
+    // Small delay to ensure UI updates before blocking async call
+    // await new Promise(resolve => setTimeout(resolve, 0));
+    //
     try {
       console.log('📝 Form submitted, calling login...');
       await login({ username, password });

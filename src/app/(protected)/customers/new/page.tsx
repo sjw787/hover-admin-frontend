@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPhoneWithCountry, formatPhoneForDisplay, validateE164, COUNTRY_CODES } from '@/lib/phoneValidation';
+import Toast, { type ToastType } from '@/components/Toast';
 
 export default function NewCustomerPage() {
   const { isAdmin, isLoading: authLoading } = useAuth();
@@ -17,19 +18,30 @@ export default function NewCustomerPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneHelp, setPhoneHelp] = useState<string | null>(null);
   const [phoneCountry, setPhoneCountry] = useState<string>('US');
   const [displayPhoneNumber, setDisplayPhoneNumber] = useState<string>('');
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
-  const [createdCustomerId, setCreatedCustomerId] = useState<string | null>(null);
+  const [showPasswordBox, setShowPasswordBox] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   if (!authLoading && !isAdmin) {
     router.push('/gallery');
     return null;
   }
 
+  const handleCopyPassword = () => {
+    if (generatedPassword) {
+      navigator.clipboard.writeText(generatedPassword);
+      setToast({
+        message: 'Password copied to clipboard!',
+        type: 'success'
+      });
+    }
+  };
 
   const handlePhoneChange = (value: string) => {
     // Store E.164 format
@@ -89,121 +101,46 @@ export default function NewCustomerPage() {
 
       // Save the auto-generated password from response
       setGeneratedPassword(customer.temporary_password || null);
-      setCreatedCustomerId(customer.customer_id);
-      setSuccess(true);
-      setIsSubmitting(false);
+      setShowPasswordBox(!!customer.temporary_password);
+
+      // Show success toast
+      setToast({
+        message: `Customer ${customer.name} created successfully!`,
+        type: 'success'
+      });
 
       // Log if password is missing
       if (!customer.temporary_password) {
         console.warn('⚠️ No temporary_password in response');
       }
 
-      // Don't auto-redirect - let admin copy the password first
+      // Navigate to customer details page after a brief delay
+      setTimeout(() => {
+        router.push(`/customers/${customer.customer_id}`);
+      }, 2000);
     } catch (err) {
       console.error('❌ Error creating customer:', err);
       setError(err instanceof Error ? err.message : 'Failed to create customer');
+      setToast({
+        message: err instanceof Error ? err.message : 'Failed to create customer',
+        type: 'error'
+      });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (success) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
-          <div className="text-green-600 dark:text-green-400 text-5xl mb-4 text-center">✓</div>
-          <h2 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-4 text-center">
-            Customer Created Successfully!
-          </h2>
-
-          {generatedPassword ? (
-            <>
-              {/* Generated Password Section */}
-              <div className="bg-white dark:bg-gray-800 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-6 mb-6">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="text-yellow-600 dark:text-yellow-400 text-2xl">⚠️</div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">
-                      Important: Temporary Password
-                    </h3>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                      This password is shown only once. Please copy it and provide it to the customer securely.
-                      The customer must change this password on first login.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 mb-4">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Temporary Password:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-lg font-mono bg-white dark:bg-gray-800 px-4 py-3 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
-                      {generatedPassword}
-                    </code>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedPassword);
-                        alert('Password copied to clipboard!');
-                      }}
-                      className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6">
-              <div className="flex items-start gap-3">
-                <div className="text-blue-600 dark:text-blue-400 text-2xl">ℹ️</div>
-                <div>
-                  <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-2">
-                    Welcome Email Sent
-                  </h3>
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    A welcome email with the temporary password has been sent to the customer.
-                    If they don&apos;t receive it, you can resend it from the customer details page.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Link
-              href={`/customers/${createdCustomerId}`}
-              className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-center"
-            >
-              View Customer Details
-            </Link>
-            <Link
-              href="/customers/new"
-              onClick={() => {
-                setSuccess(false);
-                setGeneratedPassword(null);
-                setCreatedCustomerId(null);
-                setFormData({ email: '', name: '', phone_number: '' });
-              }}
-              className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-center"
-            >
-              Create Another Customer
-            </Link>
-            <Link
-              href="/customers"
-              className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-center"
-            >
-              Back to Customers
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="mb-8">
         <Link
           href="/customers"
@@ -218,6 +155,40 @@ export default function NewCustomerPage() {
           Add a new customer account. They will receive their temporary password and must change it on first login.
         </p>
       </div>
+
+      {/* Temporary Password Display Box (shown after creation) */}
+      {showPasswordBox && generatedPassword && (
+        <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="text-yellow-600 dark:text-yellow-400 text-2xl">⚠️</div>
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white mb-2">
+                Temporary Password Generated
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                This password is shown only once. Copy it now before navigating away.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+              Temporary Password:
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-base font-mono bg-gray-100 dark:bg-gray-900 px-4 py-3 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                {generatedPassword}
+              </code>
+              <button
+                onClick={handleCopyPassword}
+                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
@@ -353,4 +324,3 @@ export default function NewCustomerPage() {
     </div>
   );
 }
-

@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { formatPhoneWithCountry, formatPhoneForDisplay, validateE164, COUNTRY_CODES } from '@/lib/phoneValidation';
+import Toast, { type ToastType } from '@/components/Toast';
 
 export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   // Phone validation state
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -91,14 +91,12 @@ export default function AccountPage() {
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
 
     // Validate phone number before submission
     if (profileData.phone_number && profileData.phone_number.trim() !== '') {
       const validation = validateE164(profileData.phone_number);
       if (!validation.isValid) {
-        setErrorMessage(validation.error || 'Invalid phone number format');
+        setToast({ message: validation.error || 'Invalid phone number format', type: 'error' });
         setIsLoading(false);
         return;
       }
@@ -106,9 +104,9 @@ export default function AccountPage() {
 
     try {
       await api.updateProfile(profileData);
-      setSuccessMessage('Profile updated successfully!');
+      setToast({ message: 'Profile updated successfully!', type: 'success' });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to update profile');
+      setToast({ message: error instanceof Error ? error.message : 'Failed to update profile', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -117,12 +115,10 @@ export default function AccountPage() {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
 
     // Validate passwords match
     if (passwordData.new_password !== passwordData.confirm_password) {
-      setErrorMessage('New passwords do not match');
+      setToast({ message: 'New passwords do not match', type: 'error' });
       setIsLoading(false);
       return;
     }
@@ -132,14 +128,14 @@ export default function AccountPage() {
         old_password: passwordData.old_password,
         new_password: passwordData.new_password,
       });
-      setSuccessMessage('Password changed successfully!');
+      setToast({ message: 'Password changed successfully!', type: 'success' });
       setPasswordData({
         old_password: '',
         new_password: '',
         confirm_password: '',
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to change password');
+      setToast({ message: error instanceof Error ? error.message : 'Failed to change password', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -190,19 +186,17 @@ export default function AccountPage() {
             </div>
           )}
 
-          {/* Success/Error Messages */}
+          {/* Toast Notification */}
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          )}
+
           {!isLoadingProfile && (
             <>
-          {successMessage && (
-            <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg">
-              {successMessage}
-            </div>
-          )}
-          {errorMessage && (
-            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-              {errorMessage}
-            </div>
-          )}
 
           {/* Profile Tab */}
           {activeTab === 'profile' && (

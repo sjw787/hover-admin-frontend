@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPhoneWithCountry, formatPhoneForDisplay, validateE164, COUNTRY_CODES } from '@/lib/phoneValidation';
+import Toast, { type ToastType } from '@/components/Toast';
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { isAdmin, isLoading: authLoading } = useAuth();
@@ -23,14 +24,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string>('');
   const [isResendingEmail, setIsResendingEmail] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
   const [newTemporaryPassword, setNewTemporaryPassword] = useState<string | null>(null);
+  const [showPasswordBox, setShowPasswordBox] = useState(false);
 
   // Phone validation state
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneHelp, setPhoneHelp] = useState<string | null>(null);
   const [phoneCountry, setPhoneCountry] = useState<string>('US');
   const [displayPhoneNumber, setDisplayPhoneNumber] = useState<string>('');
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   // Unwrap params Promise (Next.js 15+)
   useEffect(() => {
@@ -199,51 +203,54 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     if (!customer) return;
 
     // Check if resend is allowed based on user_status
-    // Per API spec: Only allow resend for FORCE_CHANGE_PASSWORD or RESET_REQUIRED
     if (!canResendWelcomeEmail(customer.user_status)) {
       if (customer.user_status === 'CONFIRMED') {
-        alert('Customer has already set their own password.\n\nThey should use the "Forgot Password" feature on the login page if they need to reset it.');
+        setToast({
+          message: 'Customer has already set their own password. They should use the "Forgot Password" feature on the login page.',
+          type: 'warning'
+        });
       } else {
-        alert(`Cannot resend welcome email for customers with status: ${customer.user_status || 'unknown'}\n\nPlease contact support if you need assistance.`);
+        setToast({
+          message: `Cannot resend welcome email for customers with status: ${customer.user_status || 'unknown'}`,
+          type: 'warning'
+        });
       }
-      return;
-    }
-
-    if (!confirm(`Resend welcome email to ${customer.email}?\n\nThis will generate a new temporary password and send it to the customer.`)) {
       return;
     }
 
     setIsResendingEmail(true);
     setError(null);
     setSuccessMessage(null);
-    setResendSuccess(false);
+    setNewTemporaryPassword(null);
 
     try {
       const result = await api.resendWelcomeEmail(customer.customer_id);
       setNewTemporaryPassword(result.temporary_password);
-      setResendSuccess(true);
-      setSuccessMessage(result.message);
+      setShowPasswordBox(true);
+
+      // Show toast notification
+      setToast({ message: 'Welcome email resent successfully!', type: 'success' });
 
       // Reload customer data to get updated status
       await loadCustomer();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to resend welcome email';
 
-      // Check if it's the "already set password" error
       if (errorMessage.includes('already set their own password') ||
           errorMessage.includes('already set their password')) {
-        setError('Cannot resend welcome email. Customer has already set their own password. They should use the "Forgot Password" feature on the login page instead.');
+        setToast({
+          message: 'Cannot resend welcome email. Customer has already set their password.',
+          type: 'error'
+        });
       } else {
-        setError(errorMessage);
+        setToast({
+          message: errorMessage,
+          type: 'error'
+        });
       }
     } finally {
       setIsResendingEmail(false);
     }
-  };
-
-  const handleClosePasswordModal = () => {
-    setResendSuccess(false);
-    setNewTemporaryPassword(null);
   };
 
   if (authLoading || !isAdmin) {
@@ -321,6 +328,60 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       {error && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
           <p className="text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
+      {/* Temporary Password Display Box (shown after resend) */}
+      {showPasswordBox && newTemporaryPassword && (
+        <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="text-yellow-600 dark:text-yellow-400 text-2xl">⚠️</div>
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-2">
+                New Temporary Password Generated
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                A new welcome email has been sent to {customer.email}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                The password below has been emailed to the customer. You can also provide it directly if needed.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setShowPasswordBox(false);
+                setNewTemporaryPassword(null);
+              }}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Close"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+              Temporary Password:
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-base font-mono bg-gray-100 dark:bg-gray-900 px-4 py-3 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white break-all">
+                {newTemporaryPassword}
+              </code>
+              <button
+                onClick={() => {
+                  if (newTemporaryPassword) {
+                    navigator.clipboard.writeText(newTemporaryPassword);
+                    setToast({ message: 'Password copied to clipboard!', type: 'success' });
+                  }
+                }}
+                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -563,7 +624,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               ) : canResendWelcomeEmail(customer.user_status) ? (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Resends welcome email with a new temporary password. Only works if customer hasn&apos;t set their own password yet.
+                  Resends welcome email with a new temporary password. Only works if the customer hasn&apos;t set their own password yet.
                   <br />
                   Use this if the customer didn&apos;t receive the original email or if the temporary password expired (7 days)
                 </p>
@@ -577,62 +638,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         )}
       </div>
 
-      {/* Password Modal */}
-      {resendSuccess && newTemporaryPassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="text-center mb-6">
-              <div className="text-green-600 dark:text-green-400 text-5xl mb-4">✓</div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                Welcome Email Sent!
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                A new welcome email has been sent to {customer.email}
-              </p>
-            </div>
-
-            {/* Generated Password Section */}
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4 mb-6">
-              <div className="flex items-start gap-2 mb-3">
-                <div className="text-yellow-600 dark:text-yellow-400 text-xl">⚠️</div>
-                <div>
-                  <h4 className="font-bold text-gray-900 dark:text-white text-sm mb-1">
-                    New Temporary Password
-                  </h4>
-                  <p className="text-xs text-gray-700 dark:text-gray-300">
-                    This password has been emailed to the customer. You can also provide it directly if needed.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-900 rounded p-3 mb-3">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Password:
-                </label>
-                <code className="block text-base font-mono bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white break-all">
-                  {newTemporaryPassword}
-                </code>
-              </div>
-
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(newTemporaryPassword);
-                  alert('Password copied to clipboard!');
-                }}
-                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-sm"
-              >
-                📋 Copy Password
-              </button>
-            </div>
-
-            <button
-              onClick={handleClosePasswordModal}
-              className="w-full px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+      {/* Toast Notification */}
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
     </div>
   );
