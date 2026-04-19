@@ -94,6 +94,41 @@ export interface CustomerListResponse {
   count: number;
 }
 
+// Project types
+export interface Project {
+  project_id: string;
+  name: string;
+  description: string;
+  shoot_start_date: string;
+  shoot_end_date: string;
+  status: 'draft' | 'in_progress' | 'delivered' | 'archived';
+  customer_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  shoot_start_date: string;
+  shoot_end_date: string;
+  status?: string;
+  customer_ids?: string[];
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  shoot_start_date?: string;
+  shoot_end_date?: string;
+  status?: string;
+}
+
+export interface ProjectListResponse {
+  projects: Project[];
+  count: number;
+}
+
 class ApiClient {
   private getAuthHeader(): HeadersInit {
     const token = localStorage.getItem('access_token');
@@ -579,6 +614,129 @@ class ApiClient {
       console.error('❌ Update customer error:', error);
       throw error;
     }
+  }
+
+  // Project Management Methods (Admin Only)
+  async listProjects(): Promise<ProjectListResponse> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects`, {
+      method: 'GET',
+      headers: this.getAuthHeader(),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch projects' }));
+      throw new Error(error.detail || 'Failed to fetch projects');
+    }
+    return response.json();
+  }
+
+  async getProject(projectId: string): Promise<Project> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects/${projectId}`, {
+      method: 'GET',
+      headers: this.getAuthHeader(),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch project' }));
+      throw new Error(error.detail || 'Failed to fetch project');
+    }
+    return response.json();
+  }
+
+  async createProject(data: CreateProjectRequest): Promise<Project> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeader() },
+      body: JSON.stringify(data),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to create project' }));
+      throw new Error(error.detail || 'Failed to create project');
+    }
+    return response.json();
+  }
+
+  async updateProject(projectId: string, data: UpdateProjectRequest): Promise<Project> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeader() },
+      body: JSON.stringify(data),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to update project' }));
+      throw new Error(error.detail || 'Failed to update project');
+    }
+    return response.json();
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeader(),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to delete project' }));
+      throw new Error(error.detail || 'Failed to delete project');
+    }
+  }
+
+  async assignCustomersToProject(projectId: string, customerIds: string[]): Promise<Project> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects/${projectId}/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeader() },
+      body: JSON.stringify({ customer_ids: customerIds }),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to assign customers' }));
+      throw new Error(error.detail || 'Failed to assign customers');
+    }
+    return response.json();
+  }
+
+  async removeCustomerFromProject(projectId: string, customerId: string): Promise<Project> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects/${projectId}/customers/${customerId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeader(),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to remove customer' }));
+      throw new Error(error.detail || 'Failed to remove customer');
+    }
+    return response.json();
+  }
+
+  async listProjectImages(projectId: string): Promise<ListImagesResponse> {
+    const response = await this.fetchWithTimeout(`${API_URL}/projects/${projectId}/images`, {
+      method: 'GET',
+      headers: this.getAuthHeader(),
+    }, 15000);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch project images' }));
+      throw new Error(error.detail || 'Failed to fetch project images');
+    }
+    const data = await response.json();
+    if (data.images) {
+      data.images = data.images.map((img: BackendImageMetadata) => ({
+        ...img,
+        url: img.presigned_url?.startsWith('http') ? img.presigned_url.replace('http://', 'https://') : '',
+      }));
+    }
+    return data;
+  }
+
+  async uploadImageToProject(file: File, projectId: string): Promise<UploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const url = new URL(`${API_URL}/images/upload`);
+    url.searchParams.append('project_id', projectId);
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: this.getAuthHeader(),
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(error.detail || 'Upload failed');
+    }
+    return response.json();
   }
 
   async resendWelcomeEmail(customerId: string): Promise<{

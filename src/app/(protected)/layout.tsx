@@ -92,6 +92,18 @@ export default function ProtectedLayout({
                     Customers
                   </Link>
                 )}
+                {isAdmin && (
+                  <Link
+                    href="/projects"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      pathname?.startsWith('/projects')
+                        ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Projects
+                  </Link>
+                )}
                 <Link
                   href="/account"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -212,6 +224,19 @@ export default function ProtectedLayout({
                   }`}
                 >
                   Customers
+                </Link>
+              )}
+              {isAdmin && (
+                <Link
+                  href="/projects"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    pathname?.startsWith('/projects')
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Projects
                 </Link>
               )}
               <Link

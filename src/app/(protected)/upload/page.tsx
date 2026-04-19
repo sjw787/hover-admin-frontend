@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, ChangeEvent, useEffect } from 'react';
-import { api, type CustomerProfile } from '@/lib/api';
+import { api, type CustomerProfile, type Project } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -22,8 +22,10 @@ export default function UploadPage() {
   // Admin-only features
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [uploadTarget, setUploadTarget] = useState<'general' | 'customer'>('general');
+  const [uploadTarget, setUploadTarget] = useState<'general' | 'customer' | 'project'>('general');
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   // Redirect customers away from upload page
   useEffect(() => {
@@ -48,6 +50,12 @@ export default function UploadPage() {
       console.error('Failed to load customers:', error);
     } finally {
       setIsLoadingCustomers(false);
+    }
+    try {
+      const projectsResponse = await api.listProjects();
+      setProjects(projectsResponse.projects);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
     }
   };
 
@@ -101,6 +109,15 @@ export default function UploadPage() {
       return;
     }
 
+    // Validate project selection if uploading to project folder
+    if (uploadTarget === 'project' && !selectedProjectId) {
+      setMessage({
+        type: 'error',
+        text: 'Please select a project to upload to.',
+      });
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
     setMessage(null);
@@ -111,13 +128,18 @@ export default function UploadPage() {
     }, 200);
 
     try {
-      const customerId = uploadTarget === 'customer' ? selectedCustomerId : undefined;
-      await api.uploadImage(selectedFile, customerId);
+      let targetFolder: string;
+      if (uploadTarget === 'project') {
+        await api.uploadImageToProject(selectedFile, selectedProjectId);
+        targetFolder = `project folder (${projects.find(p => p.project_id === selectedProjectId)?.name})`;
+      } else {
+        const customerId = uploadTarget === 'customer' ? selectedCustomerId : undefined;
+        await api.uploadImage(selectedFile, customerId);
+        targetFolder = uploadTarget === 'customer'
+          ? `customer folder (${customers.find(c => c.customer_id === selectedCustomerId)?.name})`
+          : 'general folder';
+      }
       setUploadProgress(100);
-
-      const targetFolder = uploadTarget === 'customer'
-        ? `customer folder (${customers.find(c => c.customer_id === selectedCustomerId)?.name})`
-        : 'general folder';
 
       setMessage({
         type: 'success',
@@ -178,7 +200,7 @@ export default function UploadPage() {
                   name="uploadTarget"
                   value="general"
                   checked={uploadTarget === 'general'}
-                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer')}
+                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer' | 'project')}
                   className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                 />
                 <span className="ml-3 text-sm text-gray-900 dark:text-white">
@@ -191,11 +213,24 @@ export default function UploadPage() {
                   name="uploadTarget"
                   value="customer"
                   checked={uploadTarget === 'customer'}
-                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer')}
+                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer' | 'project')}
                   className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                 />
                 <span className="ml-3 text-sm text-gray-900 dark:text-white">
                   Customer Folder (specific customer only)
+                </span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="uploadTarget"
+                  value="project"
+                  checked={uploadTarget === 'project'}
+                  onChange={(e) => setUploadTarget(e.target.value as 'general' | 'customer' | 'project')}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                />
+                <span className="ml-3 text-sm text-gray-900 dark:text-white">
+                  Project Folder (specific project only)
                 </span>
               </label>
             </div>
@@ -219,6 +254,32 @@ export default function UploadPage() {
                     {customers.map((customer) => (
                       <option key={customer.customer_id} value={customer.customer_id}>
                         {customer.name} ({customer.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Project Selection Dropdown */}
+            {uploadTarget === 'project' && (
+              <div className="mt-4">
+                <label htmlFor="project" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Project
+                </label>
+                {isLoadingCustomers ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Loading projects...</p>
+                ) : (
+                  <select
+                    id="project"
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">-- Select a project --</option>
+                    {projects.map((project) => (
+                      <option key={project.project_id} value={project.project_id}>
+                        {project.name}
                       </option>
                     ))}
                   </select>
