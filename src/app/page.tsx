@@ -51,7 +51,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-2'} gap-6`}>
           {/* Admin Only: Customers */}
           {isAdmin && (
             <Link
@@ -64,6 +64,22 @@ export default function Home() {
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
                 Manage customer accounts
+              </p>
+            </Link>
+          )}
+
+          {/* Admin Only: Projects */}
+          {isAdmin && (
+            <Link
+              href="/projects"
+              className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow text-center group"
+            >
+              <div className="text-4xl mb-4">📁</div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                Projects
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Organize shoots and deliverables
               </p>
             </Link>
           )}
